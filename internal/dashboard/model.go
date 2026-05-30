@@ -552,8 +552,9 @@ func (m *Model) executeCommand() {
 		return
 
 	case cmd == "/help" || cmd == "/h":
-		m.AddTrace("system", "═ Ctrl+N: natural language · Ctrl+M: model browser · Ctrl+P: pause · Ctrl+B: browser · Ctrl+Y: sync · Ctrl+S: quit")
-		m.AddTrace("system", "═ Commands: /model <name> · /list · /stats · /init · /install-unsloth · /help · /quit")
+		m.AddTrace("system", "═ KEYS: Ctrl+N talk  ·  Ctrl+M model browser  ·  Ctrl+P pause  ·  Ctrl+R resume  ·  Ctrl+B browser")
+		m.AddTrace("system", "═ KEYS: Ctrl+Y sync  ·  Ctrl+S quit  ·  ↑↓ navigate  ·  Enter select  ·  Esc reject  ·  o/s/p scope  ·  q quit")
+		m.AddTrace("system", "═ CMDS: /model <name>  ·  /list  ·  /stats  ·  /init  ·  /install-unsloth  ·  /help  ·  /quit")
 
 	case cmd == "/install-unsloth" || cmd == "/iu":
 		m.AddTrace("system", "═ Installing unsloth... this may take a few minutes")
