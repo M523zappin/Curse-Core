@@ -69,6 +69,12 @@ func main() {
 	gw.RegisterAdapter("unsloth", func(p gateway.ModelProfile) gateway.Adapter {
 		return adapters.NewUnsloth(p, curseDir)
 	})
+	gw.RegisterAdapter("llamacpp", func(p gateway.ModelProfile) gateway.Adapter {
+		return adapters.NewLlamaCpp(p)
+	})
+	gw.RegisterAdapter("localai", func(p gateway.ModelProfile) gateway.Adapter {
+		return adapters.NewLocalAI(p)
+	})
 	gw.RegisterAdapter("subprocess", func(p gateway.ModelProfile) gateway.Adapter {
 		return adapters.NewSubprocess(p)
 	})

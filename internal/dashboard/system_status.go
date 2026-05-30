@@ -423,6 +423,10 @@ func getProviderColor(provider string) lipgloss.Color {
 		return ColorWarning
 	case "local-fallback":
 		return ColorError
+	case "llamacpp":
+		return ColorPsychic
+	case "localai":
+		return ColorAccent
 	default:
 		return ColorFgSubtle
 	}

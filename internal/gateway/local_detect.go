@@ -33,7 +33,9 @@ func DetectLocalTools(ctx context.Context) []LocalToolInfo {
 		{"ollama", "ollama --version", "--version", "llm-server"},
 		{"llama-cli", "llama-cli --version", "--version", "llm-cli"},
 		{"llama-server", "llama-server --version", "--version", "llm-server"},
+		{"local-ai", "local-ai --version", "--version", "llm-server"},
 		{"node", "node --version", "--version", "runtime"},
+		{"nvcc", "nvcc --version", "--version", "cuda"},
 	}
 
 	for _, c := range checks {
@@ -70,6 +72,14 @@ func DetectLocalTools(ctx context.Context) []LocalToolInfo {
 	if isLlamaServerRunning(ctx) {
 		tools = append(tools, LocalToolInfo{
 			Name: "llama-server",
+			Path: "http://localhost:8080",
+			Type: "llm-server",
+		})
+	}
+
+	if isLocalAIRunning(ctx) {
+		tools = append(tools, LocalToolInfo{
+			Name: "localai",
 			Path: "http://localhost:8080",
 			Type: "llm-server",
 		})
@@ -288,9 +298,58 @@ func AutoDetectLocalModels(ctx context.Context) (map[string]ModelProfile, string
 	// ═══════════════════════════════════════════════════
 
 	if isLlamaServerRunning(ctx) {
+		llamaModels, err := listLlamaCppModels(ctx)
+		if err == nil {
+			for _, m := range llamaModels {
+				name := "llamacpp-" + m
+				profiles[name] = ModelProfile{
+					Provider:      "llamacpp",
+					Model:         m,
+					Endpoint:      "http://localhost:8080/v1/chat/completions",
+					ContextWindow: 8192,
+					MaxTokens:     4096,
+					Temperature:   0.3,
+				}
+				if firstKey != "" && strings.HasPrefix(firstKey, "codex") {
+					firstKey = name
+				}
+			}
+		}
 		profiles["llama-server"] = ModelProfile{
-			Provider:      "openai-compatible",
-			Model:         "local",
+			Provider:      "llamacpp",
+			Model:         "default",
+			Endpoint:      "http://localhost:8080/v1/chat/completions",
+			ContextWindow: 4096,
+			MaxTokens:     2048,
+			Temperature:   0.3,
+		}
+	}
+
+	// ═══════════════════════════════════════════════════
+	// Tier 5 — LocalAI server (local)
+	// ═══════════════════════════════════════════════════
+
+	if isLocalAIRunning(ctx) {
+		localAIModels, err := listLocalAIModels(ctx)
+		if err == nil {
+			for _, m := range localAIModels {
+				name := "localai-" + m
+				profiles[name] = ModelProfile{
+					Provider:      "localai",
+					Model:         m,
+					Endpoint:      "http://localhost:8080/v1/chat/completions",
+					ContextWindow: 8192,
+					MaxTokens:     4096,
+					Temperature:   0.3,
+				}
+				if firstKey != "" && strings.HasPrefix(firstKey, "codex") {
+					firstKey = name
+				}
+			}
+		}
+		profiles["localai"] = ModelProfile{
+			Provider:      "localai",
+			Model:         "default",
 			Endpoint:      "http://localhost:8080/v1/chat/completions",
 			ContextWindow: 4096,
 			MaxTokens:     2048,
@@ -389,11 +448,19 @@ func listUnslothModelNames() []string {
 	return []string{
 		"unsloth/Llama-3.2-1B-Instruct",
 		"unsloth/Llama-3.2-3B-Instruct",
+		"unsloth/Llama-4-2.7B-Instruct",
+		"unsloth/Llama-4-17B-Instruct",
 		"unsloth/Mistral-7B-Instruct-v0.3",
+		"unsloth/Mistral-Large-Instruct",
 		"unsloth/Qwen2.5-1.5B-Instruct",
 		"unsloth/Qwen2.5-7B-Instruct",
+		"unsloth/Qwen3-4B-Instruct",
+		"unsloth/Qwen3-8B-Instruct",
+		"unsloth/DeepSeek-Coder-V3-Instruct",
 		"unsloth/gemma-2-2b-it",
+		"unsloth/gemma-3-2b-it",
 		"unsloth/Phi-3.5-mini-instruct",
+		"unsloth/Phi-4-mini-instruct",
 	}
 }
 
@@ -419,6 +486,88 @@ func listOllamaModels(ctx context.Context) ([]string, error) {
 	names := make([]string, 0, len(result.Models))
 	for _, m := range result.Models {
 		names = append(names, m.Name)
+	}
+	return names, nil
+}
+
+func listLlamaCppModels(ctx context.Context) ([]string, error) {
+	client := &http.Client{Timeout: 5 * time.Second}
+	req, err := http.NewRequestWithContext(ctx, "GET", "http://localhost:8080/v1/models", nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	var result struct {
+		Data []struct {
+			ID string `json:"id"`
+		} `json:"data"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, err
+	}
+	names := make([]string, 0, len(result.Data))
+	for _, m := range result.Data {
+		if m.ID != "" {
+			names = append(names, m.ID)
+		}
+	}
+	if len(names) == 0 {
+		names = append(names, "default")
+	}
+	return names, nil
+}
+
+func isLocalAIRunning(ctx context.Context) bool {
+	client := &http.Client{Timeout: 2 * time.Second}
+	req, err := http.NewRequestWithContext(ctx, "GET", "http://localhost:8080/v1/models", nil)
+	if err != nil {
+		return false
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		return false
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return false
+	}
+	var result struct {
+		Object string `json:"object"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return true
+	}
+	return result.Object == "list" || result.Object == ""
+}
+
+func listLocalAIModels(ctx context.Context) ([]string, error) {
+	client := &http.Client{Timeout: 5 * time.Second}
+	req, err := http.NewRequestWithContext(ctx, "GET", "http://localhost:8080/v1/models", nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	var result struct {
+		Data []struct {
+			ID string `json:"id"`
+		} `json:"data"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, err
+	}
+	names := make([]string, 0, len(result.Data))
+	for _, m := range result.Data {
+		if m.ID != "" {
+			names = append(names, m.ID)
+		}
 	}
 	return names, nil
 }

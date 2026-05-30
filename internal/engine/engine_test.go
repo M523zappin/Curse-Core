@@ -42,7 +42,7 @@ func newTestEngine(t *testing.T) (*Engine, *mission.Queue, *agent.Fleet, *skill.
 	skills := skill.NewStore(skillsDir)
 	kn := knowledge.NewIndex(knDir)
 	hl := healing.NewHealingLoop()
-	eng := New(queue, fleet, skills, kn, hl)
+	eng := New(queue, fleet, skills, kn, hl, nil)
 	return eng, queue, fleet, skills, kn, hl
 }
 
