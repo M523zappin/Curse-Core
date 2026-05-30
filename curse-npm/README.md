@@ -1,6 +1,6 @@
 # @m523zappin/curse
 
-CURSE is an autonomous, natural-language-first AI coding assistant. No API keys required.
+CURSE is an Autonomous AI Codebase Assistant.
 
 ## Installation
 
@@ -24,11 +24,16 @@ Once installed, simply run:
 curse
 ```
 
-You can talk to your codebase directly in natural language.
+### Commands
+
+| Command | Action |
+|---|---|
+| `curse` | Start the dashboard |
+| `curse doctor` | Check your environment |
 
 ## Features
 
-- **Chat-by-default:** No mode switching. Just type.
 - **Zero Config:** No API keys or cloud auth needed.
 - **High Performance:** Fast, local-first execution.
 - **Professional TUI:** Beautiful, high-end terminal interface.
+
