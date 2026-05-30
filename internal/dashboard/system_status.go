@@ -59,7 +59,7 @@ func (m *SystemStatusModel) View(width int) string {
 		lines = append(lines, StatusLineStyled("CP Step", fmt.Sprintf("%d", m.lastCP.Step), DotSecure, false))
 		lines = append(lines, StatusLineStyled("Mission", truncate(m.lastCP.MissionID, 20), DotSecure, false))
 	} else {
-		lines = append(lines, StatusLineStyled("Checkpoint", "none", DotIdle, false))
+		lines = append(lines, StatusLineStyled("Checkpoint", "none", DotSecure, false))
 	}
 
 	// Queue
@@ -85,9 +85,9 @@ func (m *SystemStatusModel) View(width int) string {
 	if comp != nil {
 		buf := comp.VisionBuffer()
 		bufSize := len(buf)
-		bufDot := DotSecure
-		if bufSize == 0 {
-			bufDot = DotIdle
+		bufDot := DotProcessing
+		if bufSize > 0 {
+			bufDot = DotSecure
 		}
 		lines = append(lines, StatusLineStyled("Vision", fmt.Sprintf("%d frames", bufSize), bufDot, false))
 		reviewMgr := m.gateway.ReviewManager()

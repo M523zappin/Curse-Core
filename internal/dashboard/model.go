@@ -39,7 +39,7 @@ type TraceEntry struct {
 	Level     string
 }
 
-var version = "v0.1"
+var version = "v1.0.0"
 
 func NewModel(gw *gateway.Gateway) *Model {
 	m := &Model{
@@ -65,13 +65,28 @@ func (m *Model) SetLogPaths(logPath, cpPath string) {
 }
 
 func (m *Model) Init() tea.Cmd {
-	m.AddTrace("system", "Gateway initialized, awaiting mission")
-	m.AddTrace("system", "Computer Controller ready — Ctrl+B to start browser")
-	m.AddTrace("system", "Review mode active — HITL confirmation required for destructive actions")
 	return tea.Batch(
+		func() tea.Msg { return splashMsg{} },
 		m.pollLog(),
 		m.pulseTicker(),
 	)
+}
+
+type splashMsg struct{}
+
+func (m *Model) showSplash(ready bool) {
+	if ready {
+		return
+	}
+	m.AddTrace("entity", "═══ CURSE Cognitive Unified Runtime System Entity ═══")
+	m.AddTrace("entity", "State machine: 8 states · 15 events · SHA256 chain")
+	m.AddTrace("entity", "Agent fleet:  8 specialized roles (security, refactor, infra, ...)")
+	m.AddTrace("entity", "Computer:     Playwright browser + desktop OS control")
+	m.AddTrace("entity", "Healing:      Auto root-cause analysis + recovery loops")
+	m.AddTrace("entity", "Knowledge:    Live ADR/debug index → .curse/knowledge/")
+	m.AddTrace("entity", "LSP:          Auto-detect gopls / typescript-language-server")
+	m.AddTrace("entity", "Review:       HITL confirmation for destructive actions")
+	m.AddTrace("system", "Awaiting mission — Ctrl+B to start browser, Ctrl+P to pause")
 }
 
 func (m *Model) pollLog() tea.Cmd {
@@ -107,6 +122,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.reviewPanel.Update(msg)
 		}
 		return m, tea.Batch(m.pollLog(), m.pulseTicker())
+
+	case splashMsg:
+		m.showSplash(true)
 
 	case tea.KeyMsg:
 		switch msg.String() {
@@ -147,7 +165,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						m.AddTrace("error", fmt.Sprintf("Browser start failed: %v", err))
 						return
 					}
-					m.AddTrace("system", "✓ Browser started (chromedp)")
+					m.AddTrace("system", "✓ Browser started (Playwright)")
 				}()
 				m.browserReady = true
 			} else {
@@ -256,8 +274,11 @@ func (m *Model) cycleModel() {
 }
 
 func (m *Model) View() string {
-	if !m.ready {
-		return "Initializing Curse Gateway..."
+	if !m.ready || len(m.traceItems) < 2 {
+		m.showSplash(m.ready)
+		if !m.ready {
+			return SplashScreen(m.width)
+		}
 	}
 
 	state := m.gateway.Machine().State().String()

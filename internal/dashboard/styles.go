@@ -8,42 +8,50 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// ── Semantic Color Palette (cool theme) ──────────────────────────
+// ── CURSE Persona: High-Contrast Minimalist Palette ──────────────
+//   The terminal IS the entity. Every pixel communicates state.
+//   Nothing is decorative — everything is signal.
 
 var (
-	ColorBg         = lipgloss.Color("#1a1b26")
-	ColorFg         = lipgloss.Color("#c0caf5")
-	ColorFgBright   = lipgloss.Color("#e0e0e0")
-	ColorFgSubtle   = lipgloss.Color("#565f89")
-	ColorFgInactive = lipgloss.Color("#3b4261")
+	// Core: deep void bg, sharp white fg — maximum contrast
+	ColorBg         = lipgloss.Color("#000000")
+	ColorFg         = lipgloss.Color("#e0e0e0")
+	ColorFgBright   = lipgloss.Color("#ffffff")
+	ColorFgSubtle   = lipgloss.Color("#808080")
+	ColorFgInactive = lipgloss.Color("#404040")
+
+	// Accent: neon cyan — the operating pulse
 	ColorAccent     = lipgloss.Color("#00d4ff")
-	ColorAccentDim  = lipgloss.Color("#2aa0b0")
+	ColorAccentDim  = lipgloss.Color("#0088aa")
 	ColorAccentTeal = lipgloss.Color("#00ffab")
+
+	// Semantic: green / amber / red — nothing else
 	ColorSuccess    = lipgloss.Color("#00ff88")
-	ColorWarning    = lipgloss.Color("#ffc107")
-	ColorError      = lipgloss.Color("#ff6b80")
-	ColorProcessing = lipgloss.Color("#ffaa00")
-	ColorBorder     = lipgloss.Color("#2f3b54")
-	ColorBorderDim  = lipgloss.Color("#1e2030")
+	ColorWarning    = lipgloss.Color("#ffbb00")
+	ColorError      = lipgloss.Color("#ff3344")
+	ColorProcessing = lipgloss.Color("#ff8800")
+
+	// Borders: near-invisible until active
+	ColorBorder    = lipgloss.Color("#222222")
+	ColorBorderDim = lipgloss.Color("#111111")
 )
 
-// Pulse colours cycled during thinking state (slowed for subtlety)
+// Pulse: a single cyan beat, no rainbow
 var pulseCycle = []lipgloss.Color{
 	lipgloss.Color("#00d4ff"),
-	lipgloss.Color("#00e5ff"),
-	lipgloss.Color("#00f5d4"),
-	lipgloss.Color("#00e5ff"),
+	lipgloss.Color("#00bbdd"),
 	lipgloss.Color("#00d4ff"),
 }
 
-// ── Sparkline / Status Dots ──────────────────────────────────────
+// ── Status Dots ──────────────────────────────────────────────────
+//   Minimal. Three states only. No idle dot clutter.
+
 type DotStatus int
 
 const (
-	DotSecure    DotStatus = iota // green – SHA256 validated
-	DotProcessing                 // amber – actively processing
-	DotError                      // red – failure
-	DotIdle                       // dim grey – no activity
+	DotSecure     DotStatus = iota // green — integrity confirmed
+	DotProcessing                  // amber — actively working
+	DotError                       // red — fault detected
 )
 
 func StatusDot(s DotStatus, pulse bool) string {
@@ -60,6 +68,34 @@ func StatusDot(s DotStatus, pulse bool) string {
 	default:
 		return lipgloss.NewStyle().Foreground(ColorFgInactive).Render("○")
 	}
+}
+
+// ── Splash: CURSE entry identity ─────────────────────────────────
+
+func SplashScreen(width int) string {
+	if width < 50 {
+		width = 50
+	}
+	logo := []string{
+		"   ╔══════════════════════════════════════════════╗",
+		"   ║              C U R S E                       ║",
+		"   ║  Cognitive Unified Runtime System Entity     ║",
+		"   ║                                              ║",
+		"   ║  • State machine orchestration               ║",
+		"   ║  • Crash-recoverable event chain             ║",
+		"   ║  • Sub-agent fleet (8 domains)               ║",
+		"   ║  • Computer controller (browser + desktop)   ║",
+		"   ║  • Self-healing failure loop                 ║",
+		"   ║  • Persistent knowledge index                ║",
+		"   ║  • LSP-First diagnostics engine              ║",
+		"   ║  • HITL review mode                          ║",
+		"   ╚══════════════════════════════════════════════╝",
+	}
+	style := lipgloss.NewStyle().
+		Foreground(ColorAccent).
+		Width(width).
+		Align(lipgloss.Center)
+	return style.Render(strings.Join(logo, "\n"))
 }
 
 // ── Box-Drawing Helpers ──────────────────────────────────────────
@@ -102,7 +138,7 @@ func TitleBar(version, model, state string, dot DotStatus) string {
 		Foreground(ColorBg).
 		Bold(true).
 		Padding(0, 2)
-	content := fmt.Sprintf("  %s  CURSE  %s  │  Model: %s  │  %s  ", dotStr, version, model, state)
+	content := fmt.Sprintf("  %s  CURSE  %s  │  %s  │  %s  ", dotStr, version, model, state)
 	return barStyle.Render(content)
 }
 
@@ -124,7 +160,6 @@ func PanelHeader(title string, width int, accent lipgloss.Color) string {
 // ── Trace Item ───────────────────────────────────────────────────
 
 func TraceItemStyled(ts time.Time, msg string, age time.Duration, width int) string {
-	// Dim-on-inactivity: newer = brighter, older = dimmer
 	var timeColor, arrowColor, msgColor lipgloss.Color
 	switch {
 	case age < 3*time.Second:
@@ -188,9 +223,9 @@ func StatusLineStyled(label, value string, dot DotStatus, pulse bool) string {
 // ── Footer ───────────────────────────────────────────────────────
 
 func FooterStyled(sessionID, model, cpInfo string, paused bool, extra ...string) string {
-	pauseLabel := "Running"
+	pauseLabel := "RUNNING"
 	if paused {
-		pauseLabel = "● Paused"
+		pauseLabel = "● PAUSED"
 	}
 	left := lipgloss.NewStyle().Foreground(ColorFgSubtle).Render(
 		fmt.Sprintf("  Ctrl+P pause  Ctrl+B browser  Ctrl+Y sync  Ctrl+S quit  "),
@@ -205,7 +240,7 @@ func FooterStyled(sessionID, model, cpInfo string, paused bool, extra ...string)
 	return left + sep + right
 }
 
-// ── Pulsing colour selector ──────────────────────────────────────
+// ── Pulse ────────────────────────────────────────────────────────
 
 func PulseColor(frame int) lipgloss.Color {
 	return pulseCycle[frame%len(pulseCycle)]

@@ -103,6 +103,15 @@ func (g *Gateway) Init(ctx context.Context) error {
 		}
 	})
 
+	// ── Autonomous Architectural Backbone ─────────────────
+	g.InitFleet()
+	g.InitHealer()
+	g.InitKnowledge()
+
+	if lspPath := lsp.FindLSServer("go"); lspPath != "" {
+		go g.InitLSP("go")
+	}
+
 	modelsPath := filepath.Join(g.configDir, "models.json")
 	if _, err := os.Stat(modelsPath); err == nil {
 		reg, err := LoadModels(modelsPath)
@@ -127,6 +136,15 @@ func (g *Gateway) Init(ctx context.Context) error {
 			_ = entry
 		}
 	})
+
+	if g.healer != nil {
+		g.machine.OnTransition(func(result statemachine.TransitionResult) {
+			if result.To == statemachine.StateError {
+				g.healer.Handle("state-machine", fmt.Errorf("transitioned to Error from %s via %s",
+					result.From, result.Event))
+			}
+		})
+	}
 
 	if g.syncOnInit && g.syncer != nil {
 		if changed, err := g.SyncConstitution(); err == nil && changed {
