@@ -99,11 +99,11 @@ func EntityMark(frame int) []string {
 // ── Filled-Block "CURSE" Title Text ─────────────────────────
 //   Dense block-character letters, like Claude Code's logo.
 var CurseTitle = []string{
-	` ██████████  ██████████  ██████████  ██████████  ██████████`,
-	` ██          ██          ██              ██      ██      ██`,
-	` ██████████  ██████████  ██████████      ██      ██████████`,
-	`         ██          ██          ██      ██      ██      ██`,
-	` ██████████  ██████████  ██████████      ██      ██      ██`,
+	`██████████  ██      ██  ██████████  ██████████  ██████████`,
+	`██          ██      ██  ██      ██  ██          ██        `,
+	`██████████  ██      ██  ██████████  ██████████  ██████████`,
+	`██          ██      ██  ██    ██            ██  ██        `,
+	`██████████  ██████████  ██      ██  ██████████  ██████████`,
 }
 
 // ── Spinner ─────────────────────────────────────────────────
@@ -163,50 +163,6 @@ var pulseCycle = []lipgloss.Color{
 
 func PulseColor(frame int) lipgloss.Color {
 	return pulseCycle[frame%len(pulseCycle)]
-}
-
-// ── Splash ──────────────────────────────────────────────────
-
-func SplashScreen(width int, frame int) string {
-	if width < 60 {
-		width = 60
-	}
-
-	eye := EntityMark(frame)
-	accent := PulseColor(frame)
-	spins := Spinner(frame)
-	spins2 := Spinner(frame + 2)
-
-	eyeStyle := lipgloss.NewStyle().Foreground(accent).Width(width).Align(lipgloss.Center)
-
-	// Render the filled-block CURSE title with a gradient effect
-	titleColor := PulseColor(frame)
-	titleStyle := lipgloss.NewStyle().Foreground(titleColor).Bold(true).Width(width).Align(lipgloss.Center)
-	subStyle := lipgloss.NewStyle().Foreground(ColorFgSubtle).Width(width).Align(lipgloss.Center)
-	versionStyle := lipgloss.NewStyle().Foreground(ColorToxic).Width(width).Align(lipgloss.Center)
-	dividerStyle := lipgloss.NewStyle().Foreground(ColorBorder).Width(width).Align(lipgloss.Center)
-
-	eyeBlock := strings.Join(eye, "\n")
-	titleBlock := strings.Join(CurseTitle, "\n")
-	divider := strings.Repeat("═", width-4)
-
-	manifestLine := fmt.Sprintf("  %s  cortex · agents · senses · reflex · memory · language · ethics  %s  ",
-		spins, spins2)
-
-	lines := []string{
-		"",
-		eyeStyle.Render(eyeBlock),
-		"",
-		titleStyle.Render(titleBlock),
-		subStyle.Render("Cognitive Unified Runtime System Entity"),
-		versionStyle.Render(fmt.Sprintf("v1.0.0 — %s spiral active", spins)),
-		"",
-		dividerStyle.Render(divider),
-		"",
-		lipgloss.NewStyle().Foreground(ColorSpiral).Width(width).Align(lipgloss.Center).Render(manifestLine),
-		"",
-	}
-	return strings.Join(lines, "\n")
 }
 
 // ── Title Bar ───────────────────────────────────────────────

@@ -1,85 +1,74 @@
 ```
   ╔══════════════════════════════════════════════════════════════════╗
   ║                                                                  ║
-  ║      ██████████  ██████████  ██████████  ██████████  ██████████  ║
-  ║      ██          ██          ██              ██      ██      ██  ║
-  ║      ██████████  ██████████  ██████████      ██      ██████████  ║
-  ║              ██          ██          ██      ██      ██      ██  ║
-  ║      ██████████  ██████████  ██████████      ██      ██      ██  ║
+  ║    ██████████  ██      ██  ██████████  ██████████  ██████████   ║
+  ║    ██          ██      ██  ██      ██  ██          ██           ║
+  ║    ██████████  ██      ██  ██████████  ██████████  ██████████   ║
+  ║    ██          ██      ██  ██    ██            ██  ██           ║
+  ║    ██████████  ██████████  ██      ██  ██████████  ██████████   ║
   ║                                                                  ║
-  ║      ██     ██                                                    ║
-  ║      ██     ██   ╔═══════════════════════════════════════════╗    ║
-  ║      █████████   ║  COGNITIVE UNIFIED RUNTIME SYSTEM ENTITY ║    ║
-  ║      ██     ██   ║     Zero API Keys · 12 Adapters · TUI   ║    ║
-  ║      ██     ██   ╚═══════════════════════════════════════════╝    ║
+  ║                     C U R S E                                   ║
+  ║              Autonomous Terminal Entity                          ║
   ║                                                                  ║
-  ║      ◈  cortex · agents · senses · reflex · memory · language ◈  ║
+  ║              zero API keys · 12 adapters · TUI                   ║
   ║                                                                  ║
   ╚══════════════════════════════════════════════════════════════════╝
 ```
 
-# CURSE
-
-**Cognitive Unified Runtime System Entity** — a persistent, autonomous terminal entity for software engineering.
-
-No API keys. No cloud dependency. 12 built-in model adapters with auto-detection. Professional-grade Bubble Tea TUI with sparklines, git status, system vitals, and a self-healing feedback loop.
+CURSE is a persistent, autonomous terminal entity for software engineering.  
+No API keys. No cloud. 12 built-in model adapters with zero dependencies.
 
 ---
 
-## Quick Start
+## Install
 
 ```bash
+# One line, any platform
+curl -fsSL https://raw.githubusercontent.com/M523zappin/Curse-Core/master/install.sh | bash
+```
+
+```powershell
+# Windows
+iex "& { $(irm https://raw.githubusercontent.com/M523zappin/Curse-Core/master/install.ps1) }"
+```
+
+```bash
+# Manual
 git clone https://github.com/M523zappin/Curse-Core.git
 cd Curse-Core
 go build -o curse ./cmd/dashboard/
 ./curse
 ```
 
-CURSE auto-detects everything available on your system and starts immediately. No `.env` file needed. No API keys to configure.
-
-### One-Line Install
-
-```bash
-# Linux / macOS / WSL
-curl -fsSL https://raw.githubusercontent.com/M523zappin/Curse-Core/master/install.sh | bash
-```
-
-```powershell
-# Windows (PowerShell 5.1+)
-iex "& { $(irm https://raw.githubusercontent.com/M523zappin/Curse-Core/master/install.ps1) }"
-```
-
-**Pre-built binaries** available in `releases/`.
+No `.env` file. No API keys. CURSE auto-detects everything on your system and starts.
 
 ---
 
-## Visual Identity
+## Quick Start
 
 ```
-┌─ TITLE BAR ──────────────────────────────────────────────┐
-│  ◉ CURSE v1.0.0  │  codex  │  RUNNING                    │
-├──────────────────────────┬───────────────────────────────┤
-│  ◐ ENTITY DIRECTIVES     │  ◑ ENTITY CONSCIOUSNESS       │
-│  ┌─────┬──────┬────────┐ │  [15:04:05] entity initialized│
-│  │todo │in prg│  done  │ │  [15:04:06] model → codex    │
-│  │     │      │        │ │  [15:04:07] sync complete    │
-│  └─────┴──────┴────────┘ │                               │
-│                          │  VITAL SIGNS                   │
-│                          │  vessel ● myhost  PID 1234    │
-│                          │  state ◉ RUNNING  engine idle │
-│                          │  CPU 4G  MEM 42M/128M  GO 12  │
-│                          │  CPU:▃▄▆▇█▇▆▅▄▃▂▁ 4           │
-│                          │  git ⎇ main ●dirty +3         │
-│                          │  model codex  via codex       │
-├──────────────────────────┴───────────────────────────────┤
-│  ◉ codex [████░░░░] 42%  00:42:17                        │
-│  ◐ idle  8 skills  143 mem  100% heal                    │
-├─ QUICK ACTIONS ──────────────────────────────────────────┤
-│  [/ cmd]│[Ctrl+M model]│[Ctrl+P pause]│[Ctrl+B browse]│  │
-├──────────────────────────────────────────────────────────┤
-│  ● RUNNING │ session-id │ seq:42                         │
-└──────────────────────────────────────────────────────────┘
+$ curse
+
+  ╔═══════════════════════════════════════════════╗
+  ║            C U R S E                          ║
+  ║  Scanning subsystems.....                     ║
+  ║  [████████████████░░░░░░░]                    ║
+  ╚═══════════════════════════════════════════════╝
+
+  → scanning subsystems...
+  ✓ python3 3.13.2
+  ✓ ollama running at localhost:11434
+  ◈ ESTABLISHING ENTITY CONSCIOUSNESS...
+
+  ┌─ ENTITY CONSCIOUSNESS ────────────────────────┐
+  │  15:04:05 ▶ entity initialized                │
+  │  15:04:06 ▶ model → codex                     │
+  │  15:04:07 ▶ 12 adapters ready                 │
+  │  15:04:08 ▶ awaiting directive                │
+  └───────────────────────────────────────────────┘
 ```
+
+The boot sequence runs a 12-second entity awakening animation, auto-detects available tools, then transitions to the live dashboard.
 
 ---
 
@@ -87,61 +76,88 @@ iex "& { $(irm https://raw.githubusercontent.com/M523zappin/Curse-Core/master/in
 
 | Key | Action |
 |-----|--------|
-| `/` | Enter command mode |
-| `Ctrl+M` | Open model browser overlay |
+| `/` | Command mode |
+| `Ctrl+M` | Model browser |
 | `Ctrl+P` | Pause / Resume |
-| `Ctrl+B` | Start browser (Playwright) |
-| `Ctrl+Y` | Sync constitution from GitHub |
+| `Ctrl+B` | Start browser |
+| `Ctrl+Y` | Sync constitution |
 | `Ctrl+S` | Shutdown |
-| `↑/↓` | Navigate model browser / review queue |
-| `Enter` | Select model / approve review |
-| `Esc` | Close overlay / reject review |
-| `o` / `s` / `p` | Set approval scope (once/session/permanent) |
+| `↑/↓` | Navigate |
+| `Enter` | Select / approve |
+| `Esc` | Close / reject |
+| `o` / `s` / `p` | Approval scope |
 
-## Commands
+### Commands
 
 ```
-/model <name>        Switch to a model
-/list                List all available models
-/stats               Show system telemetry (models, budget, memory, uptime)
-/install-unsloth     Install Unsloth via pip for local LLM inference
-/help                Show all commands
+/model <name>        Switch model
+/list                List all models
+/stats               System telemetry
+/install-unsloth     Install Unsloth (local LLM)
+/help                Help
 /quit                Shutdown
 ```
 
 ---
 
-## 12 Built-in Adapters (Zero API Keys)
+## Adapters
 
-| Adapter | Type | What it does | Deps |
-|---------|------|-------------|------|
-| **codex** | AST | Go code analysis — lists functions, types, files | None |
-| **grep** | Search | Full-text codebase search across .go/.ts/.py/.rs/.md | None |
-| **eval** | Math | Pure Go math evaluator via `go/parser` (sin, cos, sqrt, pow, log) | None |
-| **echo** | Debug | Echoes the full prompt structure back | None |
-| **fortune** | Fun | Programming quotes, jokes, facts, riddles, motivation | None |
-| **system** | Info | Live system runtime — CPU, memory, goroutines, Go version | None |
-| **unsloth** | LLM | Persistent Python subprocess running Unsloth/Transformers | Python + `pip install unsloth` |
-| **ollama** | LLM | Local Ollama API with auto-detect | Ollama installed + running |
-| **openai-compatible** | API | Any OpenAI-compatible endpoint | Configurable endpoint |
-| **subprocess** | Tool | Pipes prompts to any executable | The executable |
-| **local-fallback** | Guide | Helpful startup guide when no model is configured | None |
-| **mcp** | Protocol | MCP protocol stub for extensibility | Configurable |
+CURSE ships with 12 model adapters, all zero API key by design.
 
-### Auto-Detection (4 Tiers)
+| Adapter | Type | Zero Dep | Description |
+|---------|------|----------|-------------|
+| **codex** | AST | ✓ | Go code analysis via `go/ast` |
+| **grep** | Search | ✓ | Full-text codebase search |
+| **eval** | Math | ✓ | Pure Go math evaluator |
+| **echo** | Debug | ✓ | Prompt structure echo |
+| **fortune** | Fun | ✓ | Programming quotes & facts |
+| **system** | Info | ✓ | Runtime telemetry |
+| **unsloth** | LLM | Python | Local inference via Unsloth/Transformers |
+| **ollama** | LLM | Ollama | Local Ollama API |
+| **openai-compatible** | API | — | Any OpenAI endpoint |
+| **subprocess** | Tool | — | Pipe prompts to executables |
+| **local-fallback** | Guide | ✓ | Startup guidance |
+| **mcp** | Protocol | — | MCP protocol stub |
+
+### Auto-Detection
+
+On first launch, CURSE scans 4 tiers:
 
 ```
-Tier 1 ── Built-in (codex, grep, eval, echo, fortune, system, fallback)
-            Always available, zero deps, no configuration needed
+Tier 1  builtin    codex, grep, eval, echo, fortune, system, fallback
+                  → always available, zero dependencies
+Tier 2  python     python-helper, unsloth-fast, unsloth-powerful
+                  → detected via python3 + pip check
+Tier 3  ollama     ollama-<model> for each pulled model
+                  → HTTP check localhost:11434
+Tier 4  llama.cpp  llama-server
+                  → HTTP check localhost:8080
+```
 
-Tier 2 ── Python / Unsloth (python-helper, unsloth-fast, unsloth-powerful)
-            Detects python3, checks for pip install unsloth
+---
 
-Tier 3 ── Ollama (ollama-<model> for each pulled model)
-            HTTP check at localhost:11434
+## Dashboard
 
-Tier 4 ── llama.cpp (llama-server)
-            HTTP check at localhost:8080
+```
+┌─ TITLE ───────────────────────────────────────────┐
+│  ◉ CURSE v1.0.0  │  codex  │  RUNNING             │
+├──────────────────────┬────────────────────────────┤
+│  ◐ DIRECTIVES        │  ◑ CONSCIOUSNESS           │
+│  ┌────┬────┬──────┐  │  [15:04] entity init      │
+│  │todo│prg │ done │  │  [15:04] model → codex    │
+│  │    │    │      │  │  [15:04] sync complete    │
+│  └────┴────┴──────┘  │                            │
+│                       │  VITAL SIGNS               │
+│                       │  CPU 4G  MEM 42M  GO 12   │
+│                       │  ▃▄▆▇█▇▆▅▄▃▂▁             │
+│                       │  git ⎇ main ●dirty +3     │
+│                       │  model codex  via codex   │
+├───────────────────────┴────────────────────────────┤
+│  ◉ codex [████░░░░] 42%  00:42:17                 │
+│  ◐ idle  8 skills  143 mem  100% heal             │
+├─ ACTIONS ─────────────────────────────────────────┤
+│  [/ cmd]│[Ctrl+M model]│[Ctrl+P]│[Ctrl+B]│[Ctrl+S]│
+└───────────────────────────────────────────────────┘
 ```
 
 ---
@@ -150,128 +166,83 @@ Tier 4 ── llama.cpp (llama-server)
 
 ### Frozen-Snapshot Memory
 
-CURSE reads `~/.curse/MEMORY.md` at session start and embeds it immutably into the system prompt. This cross-session memory survives restarts and provides persistent context without API overhead. Changes take effect on the next session — preserving prompt cache efficiency.
+`~/.curse/MEMORY.md` is read once at session start and embedded immutably into the prompt. Cross-session context without API overhead. Changes apply on next session — preserving prompt cache efficiency.
 
 ### Iteration Budget
 
-A thread-safe counter limits tool calls per session (default: 100). Completed tool calls refund iterations back to the budget. On exhaustion, one grace call is allowed for a summary response, preventing runaway loops.
+Thread-safe counter (default 100 calls per session). Completed tool calls refund iterations. One grace call on exhaustion prevents runaway loops.
 
-### Approval Scopes (HITL Review)
+### Approval Scopes
 
-Destructive actions (file deletes, terminal commands, browser purchases) pause in the TUI for human confirmation with three scope levels:
-
-| Scope | Behavior |
-|-------|----------|
-| `o` — Once | Approve this action only |
-| `s` — Session | Approve all similar actions this session |
-| `p` — Permanent | Trust this action type permanently |
+| Key | Scope | Effect |
+|-----|-------|--------|
+| `o` | Once | Approve this action only |
+| `s` | Session | Approve all similar this session |
+| `p` | Permanent | Trust this action type forever |
 
 ### Self-Healing Loop
 
-Errors are caught, classified (info/warning/critical), analyzed for root cause (20+ pattern matchers), and automatically remediated.
-
 | Pattern | Handler |
 |---------|---------|
-| Connection refused | Exponential backoff retry |
+| Connection refused | Exponential backoff |
 | Timeout | 2× timeout retry |
 | Port conflict | Kill + reassign |
-| Browser crash | Automatic restart |
+| Browser crash | Auto restart |
 
-### Sub-Agent Fleet (8 Specialized Roles)
+### Sub-Agent Fleet
 
 | Role | Count | Domain |
 |------|-------|--------|
-| Security Auditor | 1 | Vulnerability scanning, secret detection |
-| Refactoring | 2 | Code restructuring, tech debt reduction |
-| Infrastructure | 1 | Deployment, CI/CD, container orchestration |
-| Code Reviewer | 2 | PR review, style enforcement |
-| Tester | 1 | Test generation, coverage analysis |
-| Architect | 1 | Design decisions, ADR management |
-| Dependency Manager | 1 | Update analysis, vulnerability patching |
-| Documentation | 1 | README, API docs, changelogs |
+| Security | 1 | Vulnerability scanning |
+| Refactoring | 2 | Code restructuring |
+| Infrastructure | 1 | CI/CD, containers |
+| Reviewer | 2 | PR review |
+| Tester | 1 | Tests, coverage |
+| Architect | 1 | Design decisions |
+| Dependencies | 1 | Updates, patches |
+| Documentation | 1 | Docs, changelogs |
+
+### State Machine
+
+| State | Description |
+|-------|-------------|
+| `Idle` | Awaiting mission |
+| `Running` | Active execution |
+| `Paused` | Suspended |
+| `Checkpointing` | Writing SHA256 checkpoint |
+| `Syncing` | Pulling constitution |
+| `Error` | Unrecoverable |
+| `Recovering` | Replaying event log |
+| `Shutdown` | Graceful exit |
+
+SHA256-chained event log. Recovery in 47-61ms.
 
 ### Unsloth Integration
 
-Keep a HuggingFace model loaded in a persistent Python subprocess for zero-latency local inference:
-
 ```bash
-# From within CURSE:
+# Inside CURSE:
 /install-unsloth
 
 # Or manually:
 pip install unsloth transformers torch accelerate
 ```
 
-Models auto-detected:
-- `unsloth/Llama-3.2-1B-Instruct` (fast, CPU-friendly)
-- `unsloth/Mistral-7B-Instruct-v0.3`
-- `unsloth/Qwen2.5-7B-Instruct`
-- And more...
+Model loaded once, kept alive in persistent Python subprocess. Zero-latency inference across calls.
 
 ### Computer Controller
 
-- **Browser**: Playwright-based (chromium/firefox/webkit)
-- **Vision**: Screenshot capture, HTML extraction, UI classification
-- **Safety**: Destructive action detection with HITL review
-- **Desktop**: File operations, application launch, terminal commands
-
-### State Machine (8 States)
-
-| State | Description |
-|-------|-------------|
-| `Idle` | Initial, awaiting mission |
-| `Running` | Actively executing |
-| `Paused` | User or system pause |
-| `Checkpointing` | Writing SHA256 checkpoint |
-| `Syncing` | Pulling latest constitution |
-| `Error` | Unrecoverable error |
-| `Recovering` | Replaying event log on restart |
-| `Shutdown` | Graceful termination |
-
-SHA256-chained event log ensures tamper-evident crash recovery. Recovery in 47-61ms typical.
+- **Browser**: Playwright (chromium/firefox/webkit)
+- **Vision**: Screenshot, HTML extraction, UI classification
+- **Safety**: Destructive action detection + HITL review
 
 ### Knowledge Index
 
-Persistent JSON knowledge store with:
-- Full-text search (title 3×, tag 2×, body 1× weighting)
-- ADR recording, debug session capture
-- Tag and type filtering
-- Cross-session persistence
+Persistent JSON store with full-text search (title 3×, tag 2×, body 1×), ADR recording, tag filtering, cross-session persistence.
 
 ### LSP Integration
 
-Auto-detects and connects to language servers:
-- Go → `gopls`
-- TypeScript → `typescript-language-server`
-- Python → `pylsp`
-- Rust → `rust-analyzer`
-
-Provides: diagnostics, completions, document symbols, go-to-definition, hover.
-
----
-
-## Configuration
-
-Models are auto-detected on first launch. To customize:
-
-```json
-{
-  "active": "codex",
-  "selection_strategy": "manual",
-  "profiles": {
-    "codex": {
-      "provider": "codex",
-      "model": "codex",
-      "endpoint": "builtin://ast-analysis",
-      "context_window": 32768,
-      "max_tokens": 4096,
-      "temperature": 0.0
-    }
-  }
-}
-```
-
-Location: `~/.config/curse/models.json` (Linux/macOS) or `%APPDATA%/curse/models.json` (Windows).
+Auto-connects: `gopls`, `typescript-language-server`, `pylsp`, `rust-analyzer`.  
+Diagnostics, completions, symbols, go-to-definition, hover.
 
 ---
 
@@ -279,29 +250,29 @@ Location: `~/.config/curse/models.json` (Linux/macOS) or `%APPDATA%/curse/models
 
 ```
 cmd/
-├── curse-init/        # Bootstrap CLI — clones, scaffolds
-├── dashboard/         # TUI entry point (Bubble Tea)
-└── gateway/           # Headless API entry point
+├── curse-init/     Bootstrap CLI
+├── dashboard/      TUI entry point
+└── gateway/        Headless API
 
 internal/
-├── statemachine/      # 8 states, 15 events, SHA256 chain
-├── persistence/       # Event log, checkpoint save/load
-├── governance/        # CONSTITUTION.md parser, 10 guardrails
-├── sandbox/           # Draft-staging with approve/reject
-├── gateway/           # Adapter pipeline + tool registry
-├── gateway/adapters/  # 12 providers (see above)
-├── computer/          # Browser, desktop, vision, safety
-├── agent/             # Sub-agent fleet (8 roles)
-├── healing/           # Self-healing loop (20+ patterns)
-├── knowledge/         # Persistent index, full-text search
-├── lsp/               # gopls, ts-server, pylsp client
-├── mission/           # Kanban queue with priority
-├── dashboard/         # TUI: sparklines, git, quickbar
-├── engine/            # Autonomous loop + iteration budget
-├── scheduler/         # Cron-style recurring tasks
-├── session/           # Cross-session state
-├── skill/             # Progressive-disclosure skills
-└── sync/              # Git-based constitution syncer
+├── statemachine/   8 states · 15 events · SHA256 chain
+├── persistence/    Event log · checkpoint
+├── governance/     Constitution · 10 guardrails
+├── sandbox/        Draft-stage · approve/reject
+├── gateway/        Adapter pipeline · tool registry
+├── gateway/adapters/  12 providers
+├── computer/       Browser · vision · safety
+├── agent/          Fleet · 8 roles
+├── healing/        20+ recovery patterns
+├── knowledge/      FTS index · ADR journal
+├── lsp/            gopls · ts-server · pylsp
+├── mission/        Priority queue
+├── dashboard/      Sparklines · git · quickbar
+├── engine/         Autonomous loop · budget
+├── scheduler/      Cron tasks
+├── session/        Cross-session state
+├── skill/          Progressive disclosure
+└── sync/           Git constitution sync
 ```
 
 ---
@@ -309,23 +280,22 @@ internal/
 ## Security
 
 - **CONSTITUTION.md**: 8 principles, 10 guardrails
-- **Draft Before Write**: All writes staged through sandbox
-- **No Secrets**: Zero API key design; no `.env` needed
+- **Draft Before Write**: All mutations staged for review
+- **Zero API Keys**: No secrets, no `.env`, no cloud
 - **SHA256 Chain**: Tamper-evident event log
-- **HITL Review**: Destructive actions require human confirmation
+- **HITL Review**: Destructive actions require confirmation
 - **Approval Scopes**: Once / Session / Permanent
 
 ---
 
 ## Recovery
 
-On restart:
 1. SHA256 chain integrity verified
-2. Last checkpoint loaded (state, step, mission ID)
-3. State machine recovered to previous state
+2. Last checkpoint loaded (state, step, mission)
+3. State machine recovered
 4. Processing resumes from checkpoint
 
-Live Fire tests: 47-61ms typical recovery latency.
+Live Fire tests: 47-61ms typical.
 
 ---
 
