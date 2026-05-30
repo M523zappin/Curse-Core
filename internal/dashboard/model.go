@@ -53,11 +53,7 @@ type Model struct {
 	modelBrowserIdx     int
 	modelBrowserList    []string
 
-	commandMode   bool
-	commandBuffer string
-
-	chatMode   bool
-	chatBuffer string
+	inputBuffer  string
 
 	traceMu  sync.Mutex
 	bootTick int
@@ -306,114 +302,15 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.bootTick = 0
 
 	case tea.KeyMsg:
-		// ── Chat mode takes priority ──
-		if m.chatMode {
-			switch msg.String() {
-			case "enter":
-				m.executeChat()
-				m.chatMode = false
-				m.chatBuffer = ""
-			case "esc":
-				m.chatMode = false
-				m.chatBuffer = ""
-				m.AddTrace("system", "Natural language mode cancelled")
-			case "backspace":
-				if len(m.chatBuffer) > 0 {
-					m.chatBuffer = m.chatBuffer[:len(m.chatBuffer)-1]
-				}
-			case "ctrl+c", "ctrl+s":
-				m.quitting = true
-				m.gateway.Machine().Send(statemachine.EventShutdownRequested)
-				return m, tea.Quit
-			default:
-				if len(msg.String()) == 1 && msg.String()[0] >= 32 {
-					m.chatBuffer += msg.String()
-				}
-			}
-			return m, nil
-		}
-
-		// ── Command mode takes priority ──
-		if m.commandMode {
-			switch msg.String() {
-			case "enter":
-				m.executeCommand()
-				m.commandMode = false
-				m.commandBuffer = ""
-			case "esc":
-				m.commandMode = false
-				m.commandBuffer = ""
-			case "backspace":
-				if len(m.commandBuffer) > 0 {
-					m.commandBuffer = m.commandBuffer[:len(m.commandBuffer)-1]
-				}
-			case "ctrl+c", "ctrl+s":
-				m.quitting = true
-				m.gateway.Machine().Send(statemachine.EventShutdownRequested)
-				return m, tea.Quit
-			default:
-				if len(msg.String()) == 1 && msg.String()[0] >= 32 {
-					m.commandBuffer += msg.String()
-				}
-			}
-			return m, nil
-		}
-
 		switch msg.String() {
 		case "ctrl+c", "ctrl+s":
 			m.quitting = true
 			m.gateway.Machine().Send(statemachine.EventShutdownRequested)
 			return m, tea.Quit
-		case "ctrl+n":
-			m.chatMode = true
-			m.chatBuffer = ""
-			m.AddTrace("system", "╔══ Natural language mode — type a directive and press Enter ══╗")
-			m.AddTrace("system", "║  Say anything: describe code, ask questions, request changes    ║")
-			m.AddTrace("system", "║  Esc to cancel · Enter to send                                ║")
-			m.AddTrace("system", "╚════════════════════════════════════════════════════════════════╝")
-		case "ctrl+p":
-			m.paused = !m.paused
-			if m.paused {
-				m.gateway.Machine().Send(statemachine.EventPauseRequested)
-				m.AddTrace("system", "Paused via dashboard")
-			} else {
-				m.gateway.Machine().Send(statemachine.EventResumeRequested)
-				m.AddTrace("system", "Resumed via dashboard")
-			}
-		case "ctrl+r":
-			if m.paused {
-				m.paused = false
-				m.gateway.Machine().Send(statemachine.EventResumeRequested)
-				m.AddTrace("system", "Resumed via dashboard")
-			}
-		case "ctrl+m":
-			m.toggleModelBrowser()
-		case "ctrl+y":
-			m.AddTrace("system", "Syncing constitution from remote...")
-			if changed, err := m.gateway.SyncConstitution(); err != nil {
-				m.AddTrace("error", fmt.Sprintf("Sync failed: %v", err))
-			} else if changed {
-				m.AddTrace("system", "✓ Constitution updated from remote")
-			} else {
-				m.AddTrace("system", "→ Constitution already up to date")
-			}
-		case "ctrl+b":
-			if !m.browserReady {
-				m.browserReady = true
-				go func() {
-					if err := m.gateway.Computer().StartBrowser(); err != nil {
-						m.AddTrace("error", fmt.Sprintf("Browser start failed: %v", err))
-						m.browserReady = false
-						return
-					}
-					m.AddTrace("system", "✓ Browser started (Playwright)")
-				}()
-			} else {
-				m.AddTrace("system", "Browser already running")
-			}
-		case "/":
-			m.commandMode = true
-			m.commandBuffer = ""
+		case "tab":
+			m.cycleModel(1)
+		case "shift+tab":
+			m.cycleModel(-1)
 		case "up":
 			if m.modelBrowserVisible {
 				if m.modelBrowserIdx > 0 {
@@ -445,6 +342,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if err := m.reviewPanel.ApproveSelected(); err == nil {
 					m.AddTrace("system", "✓ Review: action approved")
 				}
+			} else {
+				m.executeUnifiedInput()
 			}
 		case "o":
 			if m.reviewPanel != nil && m.reviewPanel.Visible() {
@@ -474,21 +373,25 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.quitting = true
 				return m, tea.Quit
 			}
-		case "tab":
-			m.cycleModel(1)
-		case "shift+tab":
-			m.cycleModel(-1)
+		case "ctrl+n":
+			m.inputBuffer = ""
+		case "ctrl+m":
+			m.toggleModelBrowser()
+		case "backspace":
+			if len(m.inputBuffer) > 0 {
+				m.inputBuffer = m.inputBuffer[:len(m.inputBuffer)-1]
+			}
+		default:
+			if len(msg.String()) == 1 && msg.String()[0] >= 32 {
+				m.inputBuffer += msg.String()
+			}
+		}
+		m.missionQueue.Update(msg)
+		m.systemStatus.Update(msg)
+		return m, nil
 		}
 	}
-	m.missionQueue.Update(msg)
-	m.systemStatus.Update(msg)
-	return m, nil
 }
-
-var (
-	lastEventLogModTime time.Time
-	lastEventLogSize    int64
-)
 
 func (m *Model) pollEventLog() {
 	if m.logPath == "" {
@@ -548,203 +451,201 @@ func (m *Model) pollCheckpoint() {
 	m.systemStatus.SetCheckpoint(cp)
 }
 
-func (m *Model) executeCommand() {
-	cmd := strings.TrimSpace(m.commandBuffer)
-
-	switch {
-	case cmd == "" || cmd == "/":
-		return
-
-	case cmd == "/help" || cmd == "/h":
-		m.AddTrace("system", "═ KEYS: Ctrl+N talk  ·  Ctrl+M model browser  ·  Tab cycle model  ·  Ctrl+P pause  ·  Ctrl+R resume")
-		m.AddTrace("system", "═ KEYS: Ctrl+B browser  ·  Ctrl+Y sync  ·  Ctrl+S quit  ·  ↑↓ navigate  ·  Enter select  ·  Esc reject  ·  o/s/p scope  ·  q quit")
-		m.AddTrace("system", "═ CMDS: /model <name>  ·  /list  ·  /stats  ·  /init  ·  /install-unsloth  ·  /help  ·  /quit")
-
-	case cmd == "/install-unsloth" || cmd == "/iu":
-		m.AddTrace("system", "═ Installing unsloth... this may take a few minutes")
-		go func() {
-			if err := installUnsloth(); err != nil {
-				m.AddTrace("error", fmt.Sprintf("═ Install failed: %v", err))
-			} else {
-				m.AddTrace("system", "✓ Unsloth installed! Run /models to see available models, then /model <name> to switch")
-			}
-		}()
-
-	case cmd == "/quit" || cmd == "/q" || cmd == "/exit":
-		m.quitting = true
-		m.gateway.Machine().Send(statemachine.EventShutdownRequested)
-
-	case cmd == "/list" || cmd == "/ls":
-		if m.gateway.Registry() != nil {
-			reg := m.gateway.Registry()
-			names := make([]string, 0, len(reg.Profiles))
-			for name := range reg.Profiles {
-				names = append(names, name)
-			}
-			sort.Strings(names)
-			active := m.gateway.ActiveModel()
-			var b strings.Builder
-			b.WriteString(fmt.Sprintf("═ Models (%d):", len(names)))
-			for _, name := range names {
-				p, ok := reg.GetProfile(name)
-				mark := " "
-				if name == active {
-					mark = "●"
-				}
-				prov := "?"
-				if ok {
-					prov = p.Provider
-				}
-				b.WriteString(fmt.Sprintf(" %s%s[%s]", mark, name, prov))
-			}
-			m.AddTrace("system", b.String())
-		} else {
-			m.AddTrace("system", "═ No model registry loaded")
-		}
-
-	case cmd == "/init":
-		m.AddTrace("system", "═ Scanning project for AGENTS.md generation...")
-		go func() {
-			initPath := m.gateway.RepoPath()
-			if initPath == "" || initPath == "." {
-				initPath, _ = os.Getwd()
-			}
-			agentsFile := filepath.Join(initPath, "AGENTS.md")
-			if _, err := os.Stat(agentsFile); err == nil {
-				m.AddTrace("system", "  AGENTS.md already exists at "+agentsFile)
-				return
-			}
-			// Scan project structure
-			var lines []string
-			lines = append(lines, "# CURSE Project Context")
-			lines = append(lines, "")
-			lines = append(lines, "Auto-generated by CURSE /init. Edit to guide the entity.")
-			lines = append(lines, "")
-			lines = append(lines, "## Project")
-			lines = append(lines, "")
-			lines = append(lines, fmt.Sprintf("- Root: %s", initPath))
-			// Check for common files
-			for _, f := range []string{"go.mod", "package.json", "Cargo.toml", "pyproject.toml", "Gemfile", "build.gradle"} {
-				if _, err := os.Stat(filepath.Join(initPath, f)); err == nil {
-					lines = append(lines, fmt.Sprintf("- Detected: %s", f))
-				}
-			}
-			lines = append(lines, "")
-			lines = append(lines, "## Commands")
-			lines = append(lines, "")
-			for _, c := range [][2]string{
-				{"build", "go build ./..."},
-				{"test", "go test ./..."},
-				{"lint", "go vet ./..."},
-			} {
-				if _, err := exec.LookPath(strings.Fields(c[1])[0]); err == nil {
-					lines = append(lines, fmt.Sprintf("- %s: `%s`", c[0], c[1]))
-				}
-			}
-			lines = append(lines, "")
-			lines = append(lines, "## Conventions")
-			lines = append(lines, "")
-			lines = append(lines, "- Follow existing code style in the codebase")
-			lines = append(lines, "- Write tests for new functionality")
-			lines = append(lines, "- Keep functions focused and small")
-			content := strings.Join(lines, "\n") + "\n"
-			if err := os.WriteFile(agentsFile, []byte(content), 0644); err != nil {
-				m.AddTrace("error", fmt.Sprintf("  Write failed: %v", err))
-				return
-			}
-			m.AddTrace("system", fmt.Sprintf("✓ AGENTS.md created with %d lines", len(lines)))
-		}()
-
-	case cmd == "/stats" || cmd == "/st":
-		reg := m.gateway.Registry()
-		modelCount := 0
-		if reg != nil {
-			modelCount = len(reg.Profiles)
-		}
-		budgetRem := 0
-		if m.gateway.Budget() != nil {
-			budgetRem = int(m.gateway.Budget().Remaining())
-		}
-		memSnapshot := ""
-		if m.gateway.Memory() != nil && m.gateway.Memory().Loaded() {
-			memSnapshot = "●"
-		} else {
-			memSnapshot = "○"
-		}
-		m.AddTrace("system", fmt.Sprintf("═ Models: %d · Active: %s · State: %s · Step: %d · Budget: %d · Mem: %s · Uptime: %s",
-			modelCount,
-			m.gateway.ActiveModel(),
-			m.gateway.Machine().State().String(),
-			m.gateway.Machine().Step(),
-			budgetRem,
-			memSnapshot,
-			time.Since(m.startTime).Round(time.Second).String()))
-
-	case strings.HasPrefix(cmd, "/model "):
-		name := strings.TrimSpace(cmd[7:])
-		if name == "" {
-			m.AddTrace("error", "═ Usage: /model <name> — use /list to see available models")
-			return
-		}
-		if m.gateway.Registry() == nil {
-			m.AddTrace("error", "═ No model registry loaded")
-			return
-		}
-		if _, ok := m.gateway.Registry().GetProfile(name); !ok {
-			m.AddTrace("error", fmt.Sprintf("═ Unknown model %q — use /list to see available models", name))
-			return
-		}
-		if err := m.gateway.SwitchModel(name); err != nil {
-			m.AddTrace("error", fmt.Sprintf("═ Switch failed: %v", err))
-		} else {
-			m.AddTrace("system", fmt.Sprintf("✓ Switched model → %s", name))
-		}
-
-	default:
-		// Non-commands are treated as natural language
-		m.chatBuffer = cmd
-		m.executeChat()
-		m.chatBuffer = ""
-	}
-}
-
-func (m *Model) executeChat() {
-	input := strings.TrimSpace(m.chatBuffer)
+func (m *Model) executeUnifiedInput() {
+	input := strings.TrimSpace(m.inputBuffer)
 	if input == "" {
 		return
 	}
-	m.AddTrace("user", fmt.Sprintf(">>> %s", input))
-	m.AddTrace("system", "  processing...")
 
-	go func() {
-		adapter := m.gateway.Adapter()
-		if adapter == nil {
-			m.AddTrace("error", "  No active model — use /list to see available models, /model <name> to switch")
+	if strings.HasPrefix(input, "/") {
+		cmd := input
+		switch {
+		case cmd == "" || cmd == "/":
 			return
-		}
-		ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
-		defer cancel()
 
-		prompt := &gateway.Prompt{
-			Messages: []gateway.Message{
-				{Role: gateway.RoleUser, Content: input},
-			},
-			MaxTokens: 4096,
-		}
+		case cmd == "/help" || cmd == "/h":
+			m.AddTrace("system", "═ KEYS: Ctrl+N talk  ·  Ctrl+M model browser  ·  Tab cycle model  ·  Ctrl+P pause  ·  Ctrl+R resume")
+			m.AddTrace("system", "═ KEYS: Ctrl+B browser  ·  Ctrl+Y sync  ·  Ctrl+S quit  ·  ↑↓ navigate  ·  Enter select  ·  Esc reject  ·  o/s/p scope  ·  q quit")
+			m.AddTrace("system", "═ CMDS: /model <name>  ·  /list  ·  /stats  ·  /init  ·  /install-unsloth  ·  /help  ·  /quit")
 
-		resp, err := adapter.Send(ctx, prompt)
-		if err != nil {
-			m.AddTrace("error", fmt.Sprintf("  Response failed: %v", err))
-			return
+		case cmd == "/install-unsloth" || cmd == "/iu":
+			m.AddTrace("system", "═ Installing unsloth... this may take a few minutes")
+			go func() {
+				if err := installUnsloth(); err != nil {
+					m.AddTrace("error", fmt.Sprintf("═ Install failed: %v", err))
+				} else {
+					m.AddTrace("system", "✓ Unsloth installed! Run /models to see available models, then /model <name> to switch")
+				}
+			}()
+
+		case cmd == "/quit" || cmd == "/q" || cmd == "/exit":
+			m.quitting = true
+			m.gateway.Machine().Send(statemachine.EventShutdownRequested)
+
+		case cmd == "/list" || cmd == "/ls":
+			if m.gateway.Registry() != nil {
+				reg := m.gateway.Registry()
+				names := make([]string, 0, len(reg.Profiles))
+				for name := range reg.Profiles {
+					names = append(names, name)
+				}
+				sort.Strings(names)
+				active := m.gateway.ActiveModel()
+				var b strings.Builder
+				b.WriteString(fmt.Sprintf("═ Models (%d):", len(names)))
+				for _, name := range names {
+					p, ok := reg.GetProfile(name)
+					mark := " "
+					if name == active {
+						mark = "●"
+					}
+					prov := "?"
+					if ok {
+						prov = p.Provider
+					}
+					b.WriteString(fmt.Sprintf(" %s%s[%s]", mark, name, prov))
+				}
+				m.AddTrace("system", b.String())
+			} else {
+				m.AddTrace("system", "═ No model registry loaded")
+			}
+
+		case cmd == "/init":
+			m.AddTrace("system", "═ Scanning project for AGENTS.md generation...")
+			go func() {
+				initPath := m.gateway.RepoPath()
+				if initPath == "" || initPath == "." {
+					initPath, _ = os.Getwd()
+				}
+				agentsFile := filepath.Join(initPath, "AGENTS.md")
+				if _, err := os.Stat(agentsFile); err == nil {
+					m.AddTrace("system", "  AGENTS.md already exists at "+agentsFile)
+					return
+				}
+				// Scan project structure
+				var lines []string
+				lines = append(lines, "# CURSE Project Context")
+				lines = append(lines, "")
+				lines = append(lines, "Auto-generated by CURSE /init. Edit to guide the entity.")
+				lines = append(lines, "")
+				lines = append(lines, "## Project")
+				lines = append(lines, "")
+				lines = append(lines, fmt.Sprintf("- Root: %s", initPath))
+				// Check for common files
+				for _, f := range []string{"go.mod", "package.json", "Cargo.toml", "pyproject.toml", "Gemfile", "build.gradle"} {
+					if _, err := os.Stat(filepath.Join(initPath, f)); err == nil {
+						lines = append(lines, fmt.Sprintf("- Detected: %s", f))
+					}
+				}
+				lines = append(lines, "")
+				lines = append(lines, "## Commands")
+				lines = append(lines, "")
+				for _, c := range [][2]string{
+					{"build", "go build ./..."},
+					{"test", "go test ./..."},
+					{"lint", "go vet ./..."},
+				} {
+					if _, err := exec.LookPath(strings.Fields(c[1])[0]); err == nil {
+						lines = append(lines, fmt.Sprintf("- %s: `%s`", c[0], c[1]))
+					}
+				}
+				lines = append(lines, "")
+				lines = append(lines, "## Conventions")
+				lines = append(lines, "")
+				lines = append(lines, "- Follow existing code style in the codebase")
+				lines = append(lines, "- Write tests for new functionality")
+				lines = append(lines, "- Keep functions focused and small")
+				content := strings.Join(lines, "\n") + "\n"
+				if err := os.WriteFile(agentsFile, []byte(content), 0644); err != nil {
+					m.AddTrace("error", fmt.Sprintf("  Write failed: %v", err))
+					return
+				}
+				m.AddTrace("system", fmt.Sprintf("✓ AGENTS.md created with %d lines", len(lines)))
+			}()
+
+		case cmd == "/stats" || cmd == "/st":
+			reg := m.gateway.Registry()
+			modelCount := 0
+			if reg != nil {
+				modelCount = len(reg.Profiles)
+			}
+			budgetRem := 0
+			if m.gateway.Budget() != nil {
+				budgetRem = int(m.gateway.Budget().Remaining())
+			}
+			memSnapshot := ""
+			if m.gateway.Memory() != nil && m.gateway.Memory().Loaded() {
+				memSnapshot = "●"
+			} else {
+				memSnapshot = "○"
+			}
+			m.AddTrace("system", fmt.Sprintf("═ Models: %d · Active: %s · State: %s · Step: %d · Budget: %d · Mem: %s · Uptime: %s",
+				modelCount,
+				m.gateway.ActiveModel(),
+				m.gateway.Machine().State().String(),
+				m.gateway.Machine().Step(),
+				budgetRem,
+				memSnapshot,
+				time.Since(m.startTime).Round(time.Second).String()))
+
+		case strings.HasPrefix(cmd, "/model "):
+			name := strings.TrimSpace(cmd[7:])
+			if name == "" {
+				m.AddTrace("error", "═ Usage: /model <name> — use /list to see available models")
+				return
+			}
+			if m.gateway.Registry() == nil {
+				m.AddTrace("error", "═ No model registry loaded")
+				return
+			}
+			if _, ok := m.gateway.Registry().GetProfile(name); !ok {
+				m.AddTrace("error", fmt.Sprintf("═ Unknown model %q — use /list to see available models", name))
+				return
+			}
+			if err := m.gateway.SwitchModel(name); err != nil {
+				m.AddTrace("error", fmt.Sprintf("═ Switch failed: %v", err))
+			} else {
+				m.AddTrace("system", fmt.Sprintf("✓ Switched model → %s", name))
+			}
+
+		default:
+			m.AddTrace("error", fmt.Sprintf("═ Unknown command: %s — /help for commands", cmd))
 		}
-		text := resp.Message.Content
-		if len(text) > 400 {
-			m.AddTrace("model", fmt.Sprintf("  %s", text[:400]))
-			m.AddTrace("system", fmt.Sprintf("  ... (response truncated, full length: %d chars)", len(text)))
-		} else {
-			m.AddTrace("model", fmt.Sprintf("  %s", text))
-		}
-	}()
+	} else {
+		// Natural language directive
+		m.AddTrace("user", fmt.Sprintf(">>> %s", input))
+		m.AddTrace("system", "  processing...")
+
+		go func() {
+			adapter := m.gateway.Adapter()
+			if adapter == nil {
+				m.AddTrace("error", "  No active model — use /list to see available models, /model <name> to switch")
+				return
+			}
+			ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+			defer cancel()
+
+			prompt := &gateway.Prompt{
+				Messages: []gateway.Message{
+					{Role: gateway.RoleUser, Content: input},
+				},
+				MaxTokens: 4096,
+			}
+
+			resp, err := adapter.Send(ctx, prompt)
+			if err != nil {
+				m.AddTrace("error", fmt.Sprintf("  Response failed: %v", err))
+				return
+			}
+			text := resp.Message.Content
+			if len(text) > 400 {
+				m.AddTrace("model", fmt.Sprintf("  %s", text[:400]))
+				m.AddTrace("system", fmt.Sprintf("  ... (response truncated, full length: %d chars)", len(text)))
+			} else {
+				m.AddTrace("model", fmt.Sprintf("  %s", text))
+			}
+		}()
+	}
 }
 
 func (m *Model) toggleModelBrowser() {
@@ -992,13 +893,8 @@ func (m *Model) View() string {
 	if reviewView != "" {
 		content = lipgloss.JoinVertical(lipgloss.Top, content, "\n", reviewView)
 	}
-	if m.chatMode {
-		chatBar := m.renderChatBar(m.width - 4)
-		content = lipgloss.JoinVertical(lipgloss.Top, content, "\n", chatBar)
-	} else if m.commandMode {
-		cmdBar := m.renderCommandBar(m.width - 4)
-		content = lipgloss.JoinVertical(lipgloss.Top, content, "\n", cmdBar)
-	}
+	content = lipgloss.JoinVertical(lipgloss.Top, content, "\n", m.renderInputBar(m.width-4))
+
 	if m.modelBrowserVisible {
 		browserOverlay := m.renderModelBrowser(m.width - 4)
 		if browserOverlay != "" {
@@ -1012,9 +908,19 @@ func (m *Model) View() string {
 	return content + "\n"
 }
 
-func (m *Model) renderCommandBar(width int) string {
-	prompt := "/ "
-	display := prompt + m.commandBuffer
+func (m *Model) renderInputBar(width int) string {
+	var prefix string
+	var prefixColor lipgloss.Color
+
+	if len(m.inputBuffer) > 0 && strings.HasPrefix(m.inputBuffer, "/") {
+		prefix = "/ "
+		prefixColor = ColorAccent
+	} else {
+		prefix = ">>> "
+		prefixColor = ColorPsychic
+	}
+
+	display := prefix + m.inputBuffer
 	cursor := " "
 	if time.Now().UnixMilli()/500%2 == 0 {
 		cursor = "▌"
@@ -1026,26 +932,7 @@ func (m *Model) renderCommandBar(width int) string {
 		BorderForeground(PulseColor(m.animFrame)).
 		Padding(0, 1).
 		Width(width - 2).
-		Render(lipgloss.NewStyle().Foreground(ColorAccent).Render(display))
-
-	return bar
-}
-
-func (m *Model) renderChatBar(width int) string {
-	prefix := ">>> "
-	display := prefix + m.chatBuffer
-	cursor := " "
-	if time.Now().UnixMilli()/500%2 == 0 {
-		cursor = "▌"
-	}
-	display += cursor
-
-	bar := lipgloss.NewStyle().
-		Border(lipgloss.NormalBorder()).
-		BorderForeground(ColorAccent).
-		Padding(0, 1).
-		Width(width - 2).
-		Render(lipgloss.NewStyle().Foreground(ColorPsychic).Render(display))
+		Render(lipgloss.NewStyle().Foreground(prefixColor).Render(display))
 
 	return bar
 }
