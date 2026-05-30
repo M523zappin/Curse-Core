@@ -2,5 +2,6 @@
 .curse/
 *.log
 session.*.json
+# Binary releases tracked under releases/
 *.exe
-# Binary releases tracked separately in releases/
+!releases/*.exe

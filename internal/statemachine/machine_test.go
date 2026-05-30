@@ -142,6 +142,35 @@ func TestShutdownFromAnyState(t *testing.T) {
 	}
 }
 
+func TestSyncFlow(t *testing.T) {
+	m := New()
+	m.Send(EventMissionStarted)
+	if err := m.TriggerSync(); err != nil {
+		t.Fatalf("TriggerSync failed: %s", err)
+	}
+	if m.State() != StateSyncing {
+		t.Fatalf("expected Syncing, got %s", m.State())
+	}
+	if err := m.CompleteSync(); err != nil {
+		t.Fatalf("CompleteSync failed: %s", err)
+	}
+	if m.State() != StateRunning {
+		t.Fatalf("expected Running after sync, got %s", m.State())
+	}
+}
+
+func TestSyncFailure(t *testing.T) {
+	m := New()
+	m.Send(EventMissionStarted)
+	m.TriggerSync()
+	if err := m.FailSync(); err != nil {
+		t.Fatalf("FailSync failed: %s", err)
+	}
+	if m.State() != StateError {
+		t.Fatalf("expected Error after sync failure, got %s", m.State())
+	}
+}
+
 func TestHookCalled(t *testing.T) {
 	m := New()
 	called := false

@@ -70,3 +70,15 @@ func (m *Machine) OnTransition(hook TransitionHook) {
 func (m *Machine) CheckpointDue() bool {
 	return m.stepCounter > 0 && m.stepCounter%5 == 0
 }
+
+func (m *Machine) TriggerSync() error {
+	return m.Send(EventSyncTriggered)
+}
+
+func (m *Machine) CompleteSync() error {
+	return m.Send(EventSyncCompleted)
+}
+
+func (m *Machine) FailSync() error {
+	return m.Send(EventSyncFailed)
+}

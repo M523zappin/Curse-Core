@@ -40,6 +40,8 @@ func main() {
 		return adapters.NewMCP(p)
 	})
 
+	gw.SetSyncOnInit(true)
+
 	if err := gw.Init(context.Background()); err != nil {
 		log.Fatalf("gateway init: %v", err)
 	}

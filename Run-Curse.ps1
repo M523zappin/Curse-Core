@@ -61,16 +61,19 @@ if ($Demo) {
 }
 
 Write-Host "Launching Curse Gateway TUI..." -ForegroundColor Green
-Write-Host "  Ctrl+P  Pause/Resume" -ForegroundColor DarkGray
-Write-Host "  Ctrl+M  Cycle model" -ForegroundColor DarkGray
-Write-Host "  Ctrl+S  Shutdown" -ForegroundColor DarkGray
+Write-Host "  Ctrl+P  Pause/Resume     Ctrl+Y  Sync Constitution" -ForegroundColor DarkGray
+Write-Host "  Ctrl+M  Cycle model      Ctrl+S  Shutdown" -ForegroundColor DarkGray
 Write-Host ""
 
-$exe = Join-Path $PSScriptRoot "curse-dashboard.exe"
+$exe = Join-Path $PSScriptRoot "releases\curse-dashboard.exe"
+if (-not (Test-Path $exe)) {
+    $exe = Join-Path $PSScriptRoot "curse-dashboard.exe"
+}
 if (-not (Test-Path $exe)) {
     Write-Host "Building dashboard..." -ForegroundColor Yellow
     $env:GOROOT = "C:\Go"
     $env:Path = "C:\Go\bin;$env:Path"
+    $exe = Join-Path $PSScriptRoot "releases\curse-dashboard.exe"
     & "C:\Go\bin\go.exe" build -o $exe ./cmd/dashboard/
 }
 

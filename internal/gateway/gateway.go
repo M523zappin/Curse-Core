@@ -11,6 +11,7 @@ import (
 	"github.com/M523zappin/Curse-Core/internal/persistence"
 	"github.com/M523zappin/Curse-Core/internal/sandbox"
 	"github.com/M523zappin/Curse-Core/internal/statemachine"
+	"github.com/M523zappin/Curse-Core/internal/sync"
 )
 
 type AdapterFactory func(ModelProfile) Adapter
@@ -28,17 +29,32 @@ type Gateway struct {
 	truncator       *ContextTruncator
 	configDir       string
 	curseDir        string
+	repoPath        string
+	syncer          *sync.Syncer
 	adapterRegistry map[string]AdapterFactory
+	syncOnInit      bool
 }
 
 func New(curseDir, configDir string) *Gateway {
-	return &Gateway{
+	gw := &Gateway{
 		machine:         statemachine.New(),
 		queue:           mission.NewQueue(),
 		curseDir:        curseDir,
 		configDir:       configDir,
 		adapterRegistry: make(map[string]AdapterFactory),
 	}
+	if cwd, err := os.Getwd(); err == nil {
+		gw.repoPath = cwd
+	} else {
+		gw.repoPath = filepath.Dir(configDir)
+	}
+	if _, err := os.Stat(filepath.Join(gw.repoPath, ".git")); err == nil {
+		gw.syncer = sync.New(
+			"https://github.com/M523zappin/Curse-Core.git",
+			gw.repoPath,
+		)
+	}
+	return gw
 }
 
 func (g *Gateway) RegisterAdapter(provider string, factory AdapterFactory) {
@@ -78,6 +94,13 @@ func (g *Gateway) Init(ctx context.Context) error {
 	g.machine.OnTransition(func(result statemachine.TransitionResult) {
 		g.eventLog.Append(result.From, result.Event, result.To, nil)
 	})
+
+	if g.syncOnInit && g.syncer != nil {
+		if changed, err := g.SyncConstitution(); err == nil && changed {
+			fmt.Println("✓ Constitution synced from remote")
+		}
+	}
+
 	return nil
 }
 
@@ -141,4 +164,51 @@ func (g *Gateway) ActiveModel() string {
 
 func (g *Gateway) Registry() *ModelRegistry {
 	return g.registry
+}
+
+func (g *Gateway) SyncConstitution() (changed bool, err error) {
+	if g.syncer == nil {
+		return false, fmt.Errorf("no git repository found at %s", g.repoPath)
+	}
+
+	_ = g.machine.TriggerSync()
+
+	constPath := filepath.Join(g.repoPath, "CONSTITUTION.md")
+	changed, err = g.syncer.SyncConstitution(constPath)
+	if err != nil {
+		_ = g.machine.FailSync()
+		return false, fmt.Errorf("sync constitution: %w", err)
+	}
+
+	_ = g.machine.CompleteSync()
+
+	if changed {
+		c, parseErr := governance.Parse(constPath)
+		if parseErr == nil {
+			g.reviewer = governance.NewReviewer(c)
+		}
+	}
+
+	return changed, nil
+}
+
+func (g *Gateway) SyncStateChange(eventLogFile, sessionFile string) error {
+	if g.syncer == nil {
+		return nil
+	}
+	return sync.CommitAndPush(g.repoPath,
+		fmt.Sprintf("curse: state sync — %s step=%d",
+			g.machine.State(), g.machine.Step()))
+}
+
+func (g *Gateway) Syncer() *sync.Syncer {
+	return g.syncer
+}
+
+func (g *Gateway) RepoPath() string {
+	return g.repoPath
+}
+
+func (g *Gateway) SetSyncOnInit(v bool) {
+	g.syncOnInit = v
 }

@@ -118,6 +118,15 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case "ctrl+m":
 			m.cycleModel()
+		case "ctrl+y":
+			m.AddTrace("system", "Syncing constitution from remote...")
+			if changed, err := m.gateway.SyncConstitution(); err != nil {
+				m.AddTrace("error", fmt.Sprintf("Sync failed: %v", err))
+			} else if changed {
+				m.AddTrace("system", "✓ Constitution updated from remote")
+			} else {
+				m.AddTrace("system", "→ Constitution already up to date")
+			}
 		case "q":
 			if m.paused {
 				m.quitting = true

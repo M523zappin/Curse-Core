@@ -12,16 +12,18 @@ const (
 	StateError                     // 4 — unrecoverable error
 	StateRecovering                // 5 — replaying event log on restart
 	StateShutdown                  // 6 — graceful termination
+	StateSyncing                   // 7 — pulling latest constitution from GitHub
 )
 
 var stateNames = map[State]string{
-	StateIdle:         "Idle",
-	StateRunning:      "Running",
-	StatePaused:       "Paused",
+	StateIdle:          "Idle",
+	StateRunning:       "Running",
+	StatePaused:        "Paused",
 	StateCheckpointing: "Checkpointing",
-	StateError:        "Error",
-	StateRecovering:   "Recovering",
-	StateShutdown:     "Shutdown",
+	StateError:         "Error",
+	StateRecovering:    "Recovering",
+	StateShutdown:      "Shutdown",
+	StateSyncing:       "Syncing",
 }
 
 func (s State) String() string {
@@ -46,6 +48,9 @@ const (
 	EventRecoveryCompleted                 // Recovering → Running
 	EventRecoveryFailed                    // Recovering → Error
 	EventShutdownRequested                 // any  → Shutdown
+	EventSyncTriggered                     // Running → Syncing
+	EventSyncCompleted                     // Syncing → Running
+	EventSyncFailed                        // Syncing → Error
 )
 
 var eventNames = map[Event]string{
@@ -61,6 +66,9 @@ var eventNames = map[Event]string{
 	EventRecoveryCompleted:    "RecoveryCompleted",
 	EventRecoveryFailed:       "RecoveryFailed",
 	EventShutdownRequested:    "ShutdownRequested",
+	EventSyncTriggered:        "SyncTriggered",
+	EventSyncCompleted:        "SyncCompleted",
+	EventSyncFailed:           "SyncFailed",
 }
 
 func (e Event) String() string {
@@ -77,7 +85,7 @@ type TransitionResult struct {
 	Err   error
 }
 
-var transitionTable [7][12]State
+var transitionTable [8][15]State
 
 func init() {
 	stable := &transitionTable
@@ -101,12 +109,18 @@ func init() {
 	stable[StateError][EventRecoveryInitiated] = StateRecovering
 	stable[StateRecovering][EventRecoveryCompleted] = StateRunning
 	stable[StateRecovering][EventRecoveryFailed] = StateError
+	stable[StateRunning][EventSyncTriggered] = StateSyncing
+	stable[StateSyncing][EventSyncCompleted] = StateRunning
+	stable[StateSyncing][EventSyncFailed] = StateError
+
 	stable[StateIdle][EventShutdownRequested] = StateShutdown
 	stable[StateRunning][EventShutdownRequested] = StateShutdown
 	stable[StatePaused][EventShutdownRequested] = StateShutdown
 	stable[StateCheckpointing][EventShutdownRequested] = StateShutdown
 	stable[StateError][EventShutdownRequested] = StateShutdown
 	stable[StateRecovering][EventShutdownRequested] = StateShutdown
+	stable[StateSyncing][EventShutdownRequested] = StateShutdown
+	stable[StateSyncing][EventFatalError] = StateError
 }
 
 func ValidTransition(from State, event Event) (State, bool) {
