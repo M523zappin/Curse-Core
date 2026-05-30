@@ -56,6 +56,9 @@ type Model struct {
 	commandMode   bool
 	commandBuffer string
 
+	chatMode   bool
+	chatBuffer string
+
 	traceMu  sync.Mutex
 	bootTick int
 	detectedTools []string
@@ -261,7 +264,7 @@ func (m *Model) showSplash() {
 		m.AddTrace("entity", "  ██  language » LSP diagnostics  ·  gopls  ·  typescript")
 		m.AddTrace("entity", "  ██  ethics » HITL review  ·  constitution guardrails")
 		m.AddTrace("system", "  ◈  ENTITY ACTIVE  ·  awaiting directive")
-		m.AddTrace("system", "  ◈  / cmd  ·  Ctrl+M model browser  ·  Ctrl+P pause")
+		m.AddTrace("system", "  ◈  Ctrl+N talk  ·  Ctrl+M model browser  ·  Ctrl+P pause  ·  / commands")
 	}
 }
 
@@ -303,6 +306,33 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.bootTick = 0
 
 	case tea.KeyMsg:
+		// ── Chat mode takes priority ──
+		if m.chatMode {
+			switch msg.String() {
+			case "enter":
+				m.executeChat()
+				m.chatMode = false
+				m.chatBuffer = ""
+			case "esc":
+				m.chatMode = false
+				m.chatBuffer = ""
+				m.AddTrace("system", "Natural language mode cancelled")
+			case "backspace":
+				if len(m.chatBuffer) > 0 {
+					m.chatBuffer = m.chatBuffer[:len(m.chatBuffer)-1]
+				}
+			case "ctrl+c", "ctrl+s":
+				m.quitting = true
+				m.gateway.Machine().Send(statemachine.EventShutdownRequested)
+				return m, tea.Quit
+			default:
+				if len(msg.String()) == 1 && msg.String()[0] >= 32 {
+					m.chatBuffer += msg.String()
+				}
+			}
+			return m, nil
+		}
+
 		// ── Command mode takes priority ──
 		if m.commandMode {
 			switch msg.String() {
@@ -334,6 +364,13 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.quitting = true
 			m.gateway.Machine().Send(statemachine.EventShutdownRequested)
 			return m, tea.Quit
+		case "ctrl+n":
+			m.chatMode = true
+			m.chatBuffer = ""
+			m.AddTrace("system", "╔══ Natural language mode — type a directive and press Enter ══╗")
+			m.AddTrace("system", "║  Say anything: describe code, ask questions, request changes    ║")
+			m.AddTrace("system", "║  Esc to cancel · Enter to send                                ║")
+			m.AddTrace("system", "╚════════════════════════════════════════════════════════════════╝")
 		case "ctrl+p":
 			m.paused = !m.paused
 			if m.paused {
@@ -515,6 +552,7 @@ func (m *Model) executeCommand() {
 		return
 
 	case cmd == "/help" || cmd == "/h":
+		m.AddTrace("system", "═ Ctrl+N: natural language · Ctrl+M: model browser · Ctrl+P: pause · Ctrl+B: browser · Ctrl+Y: sync · Ctrl+S: quit")
 		m.AddTrace("system", "═ Commands: /model <name> · /list · /stats · /init · /install-unsloth · /help · /quit")
 
 	case cmd == "/install-unsloth" || cmd == "/iu":
@@ -658,8 +696,50 @@ func (m *Model) executeCommand() {
 		}
 
 	default:
-		m.AddTrace("error", fmt.Sprintf("═ Unknown command: %s — /help for commands", cmd))
+		// Non-commands are treated as natural language
+		m.chatBuffer = cmd
+		m.executeChat()
+		m.chatBuffer = ""
 	}
+}
+
+func (m *Model) executeChat() {
+	input := strings.TrimSpace(m.chatBuffer)
+	if input == "" {
+		return
+	}
+	m.AddTrace("user", fmt.Sprintf(">>> %s", input))
+	m.AddTrace("system", "  processing...")
+
+	go func() {
+		adapter := m.gateway.Adapter()
+		if adapter == nil {
+			m.AddTrace("error", "  No active model — use /list to see available models, /model <name> to switch")
+			return
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+		defer cancel()
+
+		prompt := &gateway.Prompt{
+			Messages: []gateway.Message{
+				{Role: gateway.RoleUser, Content: input},
+			},
+			MaxTokens: 4096,
+		}
+
+		resp, err := adapter.Send(ctx, prompt)
+		if err != nil {
+			m.AddTrace("error", fmt.Sprintf("  Response failed: %v", err))
+			return
+		}
+		text := resp.Message.Content
+		if len(text) > 400 {
+			m.AddTrace("model", fmt.Sprintf("  %s", text[:400]))
+			m.AddTrace("system", fmt.Sprintf("  ... (response truncated, full length: %d chars)", len(text)))
+		} else {
+			m.AddTrace("model", fmt.Sprintf("  %s", text))
+		}
+	}()
 }
 
 func (m *Model) toggleModelBrowser() {
@@ -873,7 +953,10 @@ func (m *Model) View() string {
 	if reviewView != "" {
 		content = lipgloss.JoinVertical(lipgloss.Top, content, "\n", reviewView)
 	}
-	if m.commandMode {
+	if m.chatMode {
+		chatBar := m.renderChatBar(m.width - 4)
+		content = lipgloss.JoinVertical(lipgloss.Top, content, "\n", chatBar)
+	} else if m.commandMode {
 		cmdBar := m.renderCommandBar(m.width - 4)
 		content = lipgloss.JoinVertical(lipgloss.Top, content, "\n", cmdBar)
 	}
@@ -905,6 +988,25 @@ func (m *Model) renderCommandBar(width int) string {
 		Padding(0, 1).
 		Width(width - 2).
 		Render(lipgloss.NewStyle().Foreground(ColorAccent).Render(display))
+
+	return bar
+}
+
+func (m *Model) renderChatBar(width int) string {
+	prefix := ">>> "
+	display := prefix + m.chatBuffer
+	cursor := " "
+	if time.Now().UnixMilli()/500%2 == 0 {
+		cursor = "▌"
+	}
+	display += cursor
+
+	bar := lipgloss.NewStyle().
+		Border(lipgloss.NormalBorder()).
+		BorderForeground(ColorAccent).
+		Padding(0, 1).
+		Width(width - 2).
+		Render(lipgloss.NewStyle().Foreground(ColorPsychic).Render(display))
 
 	return bar
 }
