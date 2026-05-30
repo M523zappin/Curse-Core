@@ -1,0 +1,6 @@
+.env
+.curse/
+*.log
+session.*.json
+*.exe
+# Binary releases tracked separately in releases/
