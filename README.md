@@ -19,7 +19,7 @@
   <a href="#architecture">Architecture</a>
 </p>
 
-CURSE is an autonomous terminal entity for software engineering. It operates fully offline with zero API keys — a single native binary that understands natural language, analyzes code, dispatches specialized sub-agents, and maintains a persistent consciousness across sessions.
+CURSE is a high-performance, autonomous terminal entity designed for deep software engineering. It bridges the gap between natural language intent and codebase execution through a unified, intelligence-driven interface. Operating fully offline with zero API keys, CURSE understands your codebase, dispatches specialized sub-agents, and maintains a persistent consciousness across sessions.
 
 ---
 
@@ -57,20 +57,23 @@ No configuration. No setup. The terminal UI boots in 12 seconds.
 
 ## Quick Start
 
-Press `Ctrl+N` to enter natural language mode:
+### Natural Language First
+CURSE is designed for direct interaction. There is no need to toggle modes—simply type your directive into the prompt to begin.
 
-```
+```text
 >>> refactor this server to use context deadline instead of hardcoded timeouts
 ```
 
-CURSE decomposes the request into tasks, dispatches them to specialized sub-agents, collects results, and records the outcome in its consciousness journal.
+CURSE decomposes your request into discrete tasks, dispatches them to specialized sub-agents, collects results, and records the outcome in its consciousness journal.
 
-Press `Tab` to cycle through available models, or use slash commands for direct control:
+### System Commands
+Prefix your input with `/` to execute direct system commands:
 
-```
-/model <name>     Switch to a specific model
+```text
 /list             Browse all available models
+/stats            Display system telemetry
 /init             Generate project context file
+/model <name>     Switch active model
 ```
 
 ---
@@ -81,19 +84,17 @@ Press `Tab` to cycle through available models, or use slash commands for direct 
 
 | Key | Action |
 |---|---|
-| `Ctrl+N` | Natural language input mode |
-| `Tab` | Cycle to next model |
-| `Shift+Tab` | Cycle to previous model |
-| `/` | Command mode |
+| **(Type)** | Direct natural language interaction |
+| `/` | Prefix for system commands |
+| `Tab` | Cycle through available models |
+| `Shift+Tab` | Cycle through models (reverse) |
 | `Ctrl+M` | Open model browser overlay |
+| `Ctrl+N` | Clear input buffer |
 | `Ctrl+P` | Pause / resume execution |
-| `Ctrl+R` | Resume when paused |
-| `Ctrl+B` | Start Playwright browser |
-| `Ctrl+Y` | Sync constitution from remote |
 | `Ctrl+S` | Shutdown |
-| `↑` / `↓` | Navigate model browser or review panel |
-| `Enter` | Select model or approve review action |
-| `Esc` | Close model browser or reject review action |
+| `↑` / `↓` | Navigate browser or review panel |
+| `Enter` | Execute command / Select / Approve |
+| `Esc` | Close browser / Reject review action |
 | `o` | Set approval scope to Once |
 | `s` | Set approval scope to Session |
 | `p` | Set approval scope to Permanent |
@@ -248,13 +249,11 @@ Playwright-driven browser control with vision buffer, UI classification, pre-cli
 ---
 
 ## Recovery
-
 On restart, CURSE verifies SHA256 chain integrity, loads the last checkpoint, recovers the state machine, and replays the consciousness journal. Typical recovery time is under 100 milliseconds.
 
 ---
 
 ## Security
-
 - Zero API keys, secrets, or cloud dependencies
 - All file writes staged through a sandbox with human review
 - SHA256-chained event log for tamper detection
@@ -264,5 +263,5 @@ On restart, CURSE verifies SHA256 chain integrity, loads the last checkpoint, re
 ---
 
 ## License
-
 MIT
+
