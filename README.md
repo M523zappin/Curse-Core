@@ -1,7 +1,7 @@
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="curse-logo.svg">
-    <img src="curse-logo.svg" alt="CURSE" width="600">
+    <source media="(prefers-color-scheme: dark)" srcset="assets/curse-logo.svg">
+    <img src="assets/curse-logo.svg" alt="CURSE" width="600">
   </picture>
 </p>
 
@@ -28,13 +28,20 @@ CURSE is a high-performance, autonomous terminal entity designed for deep softwa
 ### Linux / macOS / WSL
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/M523zappin/Curse-Core/master/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/M523zappin/Curse-Core/master/scripts/install.sh | bash
 ```
 
 ### Windows (PowerShell 5.1+)
 
 ```powershell
-iex "& { $(irm https://raw.githubusercontent.com/M523zappin/Curse-Core/master/install.ps1) }"
+iex "& { $(irm https://raw.githubusercontent.com/M523zappin/Curse-Core/master/scripts/install.ps1) }"
+```
+
+
+### NPM (Recommended for Node.js users)
+
+```bash
+npm install -g @m523zappin/curse
 ```
 
 ### Manual build

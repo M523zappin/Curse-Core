@@ -1,7 +1,34 @@
+# Environment variables
 .env
+
+# Local configurations and logs
 .curse/
 *.log
 session.*.json
-# Binary releases tracked under releases/
+
+# Build artifacts
+build/
+bin/
+out/
+dist/
+
+# Go binaries and tools
 *.exe
 !releases/*.exe
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+

@@ -1,0 +1,21 @@
+{
+  "name": "@m523zappin/curse",
+  "version": "1.0.0",
+  "description": "Autonomous AI Codebase Assistant",
+  "main": "bin/curse.js",
+  "bin": {
+    "curse": "bin/curse.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/M523zappin/Curse-Core.git"
+  },
+  "keywords": [
+    "ai",
+    "cli",
+    "autonomous",
+    "coder"
+  ],
+  "author": "M523zappin",
+  "license": "MIT"
+}
