@@ -23,6 +23,8 @@ func main() {
 	}
 	configDir = filepath.Join(configDir, "curse")
 
+	repoPath, _ := os.Getwd()
+
 	gw := gateway.New(curseDir, configDir)
 	gw.RegisterAdapter("ollama", func(p gateway.ModelProfile) gateway.Adapter {
 		return adapters.NewOllama(p)
@@ -32,6 +34,33 @@ func main() {
 	})
 	gw.RegisterAdapter("mcp", func(p gateway.ModelProfile) gateway.Adapter {
 		return adapters.NewMCP(p)
+	})
+	gw.RegisterAdapter("codex", func(p gateway.ModelProfile) gateway.Adapter {
+		return adapters.NewCodex(p, repoPath)
+	})
+	gw.RegisterAdapter("grep", func(p gateway.ModelProfile) gateway.Adapter {
+		return adapters.NewGrep(p, repoPath)
+	})
+	gw.RegisterAdapter("echo", func(p gateway.ModelProfile) gateway.Adapter {
+		return adapters.NewEcho(p)
+	})
+	gw.RegisterAdapter("eval", func(p gateway.ModelProfile) gateway.Adapter {
+		return adapters.NewEval(p)
+	})
+	gw.RegisterAdapter("fortune", func(p gateway.ModelProfile) gateway.Adapter {
+		return adapters.NewFortune(p)
+	})
+	gw.RegisterAdapter("system", func(p gateway.ModelProfile) gateway.Adapter {
+		return adapters.NewSystem(p)
+	})
+	gw.RegisterAdapter("local-fallback", func(p gateway.ModelProfile) gateway.Adapter {
+		return adapters.NewLocalFallback(p)
+	})
+	gw.RegisterAdapter("unsloth", func(p gateway.ModelProfile) gateway.Adapter {
+		return adapters.NewUnsloth(p, curseDir)
+	})
+	gw.RegisterAdapter("subprocess", func(p gateway.ModelProfile) gateway.Adapter {
+		return adapters.NewSubprocess(p)
 	})
 
 	ctx := context.Background()

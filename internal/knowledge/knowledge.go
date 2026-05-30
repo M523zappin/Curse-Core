@@ -35,6 +35,14 @@ type KnowledgeEntry struct {
 	Metadata    map[string]interface{} `json:"metadata,omitempty"`
 }
 
+type SessionSummary struct {
+	SessionID string    `json:"session_id"`
+	StartTime time.Time `json:"start_time"`
+	Duration  time.Duration `json:"duration"`
+	TaskCount int       `json:"task_count"`
+	Summary   string    `json:"summary"`
+}
+
 type SearchResult struct {
 	Entry    KnowledgeEntry `json:"entry"`
 	Score    float64        `json:"score"`
@@ -253,6 +261,65 @@ func extractTags(s string) []string {
 		tags = append(tags, tag)
 	}
 	return tags
+}
+
+func (idx *Index) RecordSession(sessionID string, summary SessionSummary) string {
+	return idx.Add(KnowledgeEntry{
+		Type:  TypeADR,
+		Title: fmt.Sprintf("Session: %s", sessionID),
+		Body: fmt.Sprintf("Session %s ran for %s, completed %d tasks.\n\nSummary: %s",
+			sessionID, FormatDuration(summary.Duration), summary.TaskCount, summary.Summary),
+		Tags: []string{"session", "summary"},
+	})
+}
+
+func (idx *Index) QueryContext(limit int) []KnowledgeEntry {
+	idx.mu.RLock()
+	defer idx.mu.RUnlock()
+
+	n := len(idx.entries)
+	if n == 0 {
+		return nil
+	}
+
+	start := n - limit
+	if start < 0 {
+		start = 0
+	}
+
+	out := make([]KnowledgeEntry, 0, n-start)
+	for i := n - 1; i >= start; i-- {
+		out = append(out, idx.entries[i])
+	}
+	return out
+}
+
+func (idx *Index) RecentByType(typ EntryType, limit int) []KnowledgeEntry {
+	idx.mu.RLock()
+	defer idx.mu.RUnlock()
+
+	positions, ok := idx.byType[typ]
+	if !ok {
+		return nil
+	}
+
+	start := len(positions) - limit
+	if start < 0 {
+		start = 0
+	}
+
+	out := make([]KnowledgeEntry, 0, len(positions)-start)
+	for i := len(positions) - 1; i >= start; i-- {
+		out = append(out, idx.entries[positions[i]])
+	}
+	return out
+}
+
+func FormatDuration(d time.Duration) string {
+	h := int(d.Hours())
+	m := int(d.Minutes()) % 60
+	s := int(d.Seconds()) % 60
+	return fmt.Sprintf("%02d:%02d:%02d", h, m, s)
 }
 
 func truncateStr(s string, n int) string {

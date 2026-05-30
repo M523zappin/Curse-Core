@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -54,42 +55,11 @@ func main() {
 		fmt.Println("✓ .env already exists")
 	}
 
-	configDir, err := os.UserConfigDir()
-	if err != nil {
-		configDir = filepath.Join(destDir, "config")
-	}
-	modelsDir := filepath.Join(configDir, "curse")
-	if err := os.MkdirAll(modelsDir, 0755); err == nil {
-		modelsPath := filepath.Join(modelsDir, "models.json")
-		if _, err := os.Stat(modelsPath); os.IsNotExist(err) {
-			reg := gateway.ModelRegistry{
-				Active: "fast-edit",
-				Profiles: map[string]gateway.ModelProfile{
-					"fast-edit": {
-						Provider:      "ollama",
-						Model:         "codellama:7b",
-						Endpoint:      "${OLLAMA_ENDPOINT}",
-						ContextWindow:  8192,
-					},
-					"deep-reasoning": {
-						Provider:      "openai-compatible",
-						Model:         "gpt-4o",
-						Endpoint:      "https://api.openai.com/v1",
-						Auth:          gateway.AuthConfig{Header: "Authorization", EnvVar: "OPENAI_API_KEY"},
-						ContextWindow:  128000,
-					},
-					"mcp-editor": {
-						Provider:      "mcp",
-						Model:         "editor",
-						Endpoint:      "${MCP_ENDPOINT}",
-						ContextWindow:  32768,
-					},
-				},
-			}
-			data, _ := json.MarshalIndent(reg, "", "  ")
-			os.WriteFile(modelsPath, data, 0644)
-			fmt.Println("✓ models.json scaffolded at " + modelsPath)
-		}
+	modelsPath := scaffoldModels(destDir)
+	if modelsPath != "" {
+		fmt.Println("✓ models.json scaffolded at " + modelsPath)
+	} else {
+		fmt.Println("✓ models.json already exists (skipped)")
 	}
 
 	runtimeDir := filepath.Join(destDir, ".curse")
@@ -109,8 +79,52 @@ func main() {
 	fmt.Println("│  Initialization Complete!            │")
 	fmt.Println("│                                      │")
 	fmt.Println("│  Next steps:                         │")
-	fmt.Println("│  1. Edit .env with your API keys     │")
-	fmt.Println("│  2. Run 'curse' to launch dashboard  │")
-	fmt.Println("│  3. Or build from source: go build   │")
+	fmt.Println("│  1. Run 'curse' to launch dashboard  │")
+	fmt.Println("│  2. Press Ctrl+M to switch models    │")
+	fmt.Println("│  3. No API keys needed (local mode)  │")
 	fmt.Println("╰──────────────────────────────────────╯")
+}
+
+func scaffoldModels(destDir string) string {
+	configDir, err := os.UserConfigDir()
+	if err != nil {
+		configDir = filepath.Join(destDir, "config")
+	}
+	modelsDir := filepath.Join(configDir, "curse")
+	if err := os.MkdirAll(modelsDir, 0755); err != nil {
+		return ""
+	}
+	modelsPath := filepath.Join(modelsDir, "models.json")
+	if _, err := os.Stat(modelsPath); err == nil {
+		return ""
+	}
+
+	ctx := context.Background()
+	reg := gateway.GenerateDefaultLocalRegistry(ctx)
+	if reg == nil || len(reg.Profiles) == 0 {
+		reg = &gateway.ModelRegistry{
+			Active: "codex",
+			Profiles: map[string]gateway.ModelProfile{
+				"codex": {
+					Provider:      "codex",
+					Model:         "codex",
+					Endpoint:      "builtin://ast-analysis",
+					ContextWindow: 32768,
+					MaxTokens:     4096,
+					Temperature:   0.0,
+				},
+				"fallback": {
+					Provider:      "local-fallback",
+					Model:         "fallback",
+					Endpoint:      "builtin://local",
+					ContextWindow: 4096,
+					MaxTokens:    1024,
+					Temperature:   0.5,
+				},
+			},
+		}
+	}
+	data, _ := json.MarshalIndent(reg, "", "  ")
+	os.WriteFile(modelsPath, data, 0644)
+	return modelsPath
 }

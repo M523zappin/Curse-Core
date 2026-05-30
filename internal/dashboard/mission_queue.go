@@ -20,7 +20,7 @@ func NewMissionQueueModel(q *mission.Queue) *MissionQueueModel {
 func (m *MissionQueueModel) Update(msg tea.Msg) {
 }
 
-func (m *MissionQueueModel) View(width int) string {
+func (m *MissionQueueModel) View(width int, frame int) string {
 	all := m.queue.All()
 
 	todo := make([]string, 0)
@@ -37,7 +37,7 @@ func (m *MissionQueueModel) View(width int) string {
 		case mission.StatusDone:
 			statusStr = "DONE"
 		}
-		card := KanbanCardStyled(ms.ID[:8], ms.Task, statusStr, ms.Status == mission.StatusInProgress, width/3-1)
+		card := KanbanCardStyled(ms.ID[:8], ms.Task, statusStr, ms.Status == mission.StatusInProgress, width/3-1, frame)
 		switch ms.Status {
 		case mission.StatusTodo:
 			todo = append(todo, card)

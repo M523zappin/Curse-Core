@@ -2,7 +2,10 @@ package dashboard
 
 import (
 	"fmt"
+	"os/exec"
+	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -12,7 +15,7 @@ import (
 	"github.com/M523zappin/Curse-Core/internal/statemachine"
 )
 
-type pulseTick time.Time
+type animTick time.Time
 
 type Model struct {
 	gateway      *gateway.Gateway
@@ -28,9 +31,19 @@ type Model struct {
 	quitting     bool
 	logPath      string
 	cpPath       string
-	pulseFrame   int
+	animFrame    int
 	reviewPanel  *ReviewPanelModel
 	browserReady bool
+	startTime    time.Time
+
+	modelBrowserVisible bool
+	modelBrowserIdx     int
+	modelBrowserList    []string
+
+	commandMode   bool
+	commandBuffer string
+
+	traceMu sync.Mutex
 }
 
 type TraceEntry struct {
@@ -50,6 +63,7 @@ func NewModel(gw *gateway.Gateway) *Model {
 		systemStatus: NewSystemStatusModel(gw),
 		maxVisible:   25,
 		lastSeqRead:  0,
+		startTime:    time.Now(),
 	}
 
 	if gw.ReviewManager() != nil {
@@ -67,8 +81,7 @@ func (m *Model) SetLogPaths(logPath, cpPath string) {
 func (m *Model) Init() tea.Cmd {
 	return tea.Batch(
 		func() tea.Msg { return splashMsg{} },
-		m.pollLog(),
-		m.pulseTicker(),
+		m.animTicker(),
 	)
 }
 
@@ -78,26 +91,22 @@ func (m *Model) showSplash(ready bool) {
 	if ready {
 		return
 	}
-	m.AddTrace("entity", "═══ CURSE Cognitive Unified Runtime System Entity ═══")
-	m.AddTrace("entity", "State machine: 8 states · 15 events · SHA256 chain")
-	m.AddTrace("entity", "Agent fleet:  8 specialized roles (security, refactor, infra, ...)")
-	m.AddTrace("entity", "Computer:     Playwright browser + desktop OS control")
-	m.AddTrace("entity", "Healing:      Auto root-cause analysis + recovery loops")
-	m.AddTrace("entity", "Knowledge:    Live ADR/debug index → .curse/knowledge/")
-	m.AddTrace("entity", "LSP:          Auto-detect gopls / typescript-language-server")
-	m.AddTrace("entity", "Review:       HITL confirmation for destructive actions")
-	m.AddTrace("system", "Awaiting mission — Ctrl+B to start browser, Ctrl+P to pause")
+	m.AddTrace("entity", "██████████████████████████████████████████████████████████")
+	m.AddTrace("entity", "  ██  ENTITY ACTIVE  ██")
+	m.AddTrace("entity", "  ████████████████████████████████████████████████████████")
+	m.AddTrace("entity", "  ██  cortex » 8-state machine · SHA256-chain memory")
+	m.AddTrace("entity", "  ██  agents » 8 specialized minds · priority dispatch")
+	m.AddTrace("entity", "  ██  senses » Playwright browser · desktop OS · vision")
+	m.AddTrace("entity", "  ██  reflex » self-healing loop · root-cause analysis")
+	m.AddTrace("entity", "  ██  memory » persistent knowledge index · ADR journal")
+	m.AddTrace("entity", "  ██  language » LSP diagnostics · gopls · typescript")
+	m.AddTrace("entity", "  ██  ethics » HITL review · constitution guardrails")
+	m.AddTrace("system", "  ██  awaiting directive · Ctrl+B browse · Ctrl+P pause")
 }
 
-func (m *Model) pollLog() tea.Cmd {
-	return tea.Tick(800*time.Millisecond, func(t time.Time) tea.Msg {
-		return pulseTick(t)
-	})
-}
-
-func (m *Model) pulseTicker() tea.Cmd {
-	return tea.Tick(1500*time.Millisecond, func(t time.Time) tea.Msg {
-		return pulseTick(t)
+func (m *Model) animTicker() tea.Cmd {
+	return tea.Tick(200*time.Millisecond, func(t time.Time) tea.Msg {
+		return animTick(t)
 	})
 }
 
@@ -114,19 +123,47 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.maxVisible = 8
 		}
 
-	case pulseTick:
-		m.pulseFrame++
+	case animTick:
+		m.animFrame++
 		m.pollEventLog()
 		m.pollCheckpoint()
+		initSystemSparklines()
+		tickSparklines()
 		if m.reviewPanel != nil {
 			m.reviewPanel.Update(msg)
 		}
-		return m, tea.Batch(m.pollLog(), m.pulseTicker())
+		return m, m.animTicker()
 
 	case splashMsg:
 		m.showSplash(true)
 
 	case tea.KeyMsg:
+		// ── Command mode takes priority ──
+		if m.commandMode {
+			switch msg.String() {
+			case "enter":
+				m.executeCommand()
+				m.commandMode = false
+				m.commandBuffer = ""
+			case "esc":
+				m.commandMode = false
+				m.commandBuffer = ""
+			case "backspace":
+				if len(m.commandBuffer) > 0 {
+					m.commandBuffer = m.commandBuffer[:len(m.commandBuffer)-1]
+				}
+			case "ctrl+c", "ctrl+s":
+				m.quitting = true
+				m.gateway.Machine().Send(statemachine.EventShutdownRequested)
+				return m, tea.Quit
+			default:
+				if len(msg.String()) == 1 && msg.String()[0] >= 32 {
+					m.commandBuffer += msg.String()
+				}
+			}
+			return m, nil
+		}
+
 		switch msg.String() {
 		case "ctrl+c", "ctrl+s":
 			m.quitting = true
@@ -148,7 +185,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.AddTrace("system", "Resumed via dashboard")
 			}
 		case "ctrl+m":
-			m.cycleModel()
+			m.toggleModelBrowser()
 		case "ctrl+y":
 			m.AddTrace("system", "Syncing constitution from remote...")
 			if changed, err := m.gateway.SyncConstitution(); err != nil {
@@ -171,23 +208,45 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			} else {
 				m.AddTrace("system", "Browser already running")
 			}
-
+		case "/":
+			m.commandMode = true
+			m.commandBuffer = ""
 		case "up":
-			if m.reviewPanel != nil && m.reviewPanel.Visible() {
+			if m.modelBrowserVisible {
+				if m.modelBrowserIdx > 0 {
+					m.modelBrowserIdx--
+				}
+			} else if m.reviewPanel != nil && m.reviewPanel.Visible() {
 				m.reviewPanel.SelectPrev()
 			}
 		case "down":
-			if m.reviewPanel != nil && m.reviewPanel.Visible() {
+			if m.modelBrowserVisible {
+				if m.modelBrowserIdx < len(m.modelBrowserList)-1 {
+					m.modelBrowserIdx++
+				}
+			} else if m.reviewPanel != nil && m.reviewPanel.Visible() {
 				m.reviewPanel.SelectNext()
 			}
 		case "enter":
-			if m.reviewPanel != nil && m.reviewPanel.Visible() {
+			if m.modelBrowserVisible {
+				if m.modelBrowserIdx < len(m.modelBrowserList) {
+					selected := m.modelBrowserList[m.modelBrowserIdx]
+					if selected != m.gateway.ActiveModel() {
+						if err := m.gateway.SwitchModel(selected); err == nil {
+							m.AddTrace("system", fmt.Sprintf("Switched model → %s", selected))
+						}
+					}
+					m.modelBrowserVisible = false
+				}
+			} else if m.reviewPanel != nil && m.reviewPanel.Visible() {
 				if err := m.reviewPanel.ApproveSelected(); err == nil {
 					m.AddTrace("system", "✓ Review: action approved")
 				}
 			}
 		case "esc":
-			if m.reviewPanel != nil && m.reviewPanel.Visible() {
+			if m.modelBrowserVisible {
+				m.modelBrowserVisible = false
+			} else if m.reviewPanel != nil && m.reviewPanel.Visible() {
 				if err := m.reviewPanel.RejectSelected(); err == nil {
 					m.AddTrace("system", "✗ Review: action rejected")
 				}
@@ -252,32 +311,221 @@ func (m *Model) pollCheckpoint() {
 	m.systemStatus.SetCheckpoint(cp)
 }
 
-func (m *Model) cycleModel() {
-	if m.gateway.Registry() != nil {
-		reg := m.gateway.Registry()
-		profiles := make([]string, 0, len(reg.Profiles))
-		for name := range reg.Profiles {
-			profiles = append(profiles, name)
+func (m *Model) executeCommand() {
+	cmd := strings.TrimSpace(m.commandBuffer)
+
+	switch {
+	case cmd == "" || cmd == "/":
+		return
+
+	case cmd == "/help" || cmd == "/h":
+		m.AddTrace("system", "═ Commands: /model <name> · /list · /stats · /install-unsloth · /help · /quit")
+
+	case cmd == "/install-unsloth" || cmd == "/iu":
+		m.AddTrace("system", "═ Installing unsloth... this may take a few minutes")
+		go func() {
+			if err := installUnsloth(); err != nil {
+				m.AddTrace("error", fmt.Sprintf("═ Install failed: %v", err))
+			} else {
+				m.AddTrace("system", "✓ Unsloth installed! Run /models to see available models, then /model <name> to switch")
+			}
+		}()
+
+	case cmd == "/quit" || cmd == "/q" || cmd == "/exit":
+		m.quitting = true
+		m.gateway.Machine().Send(statemachine.EventShutdownRequested)
+
+	case cmd == "/list" || cmd == "/ls":
+		if m.gateway.Registry() != nil {
+			reg := m.gateway.Registry()
+			names := make([]string, 0, len(reg.Profiles))
+			for name := range reg.Profiles {
+				names = append(names, name)
+			}
+			sort.Strings(names)
+			active := m.gateway.ActiveModel()
+			var b strings.Builder
+			b.WriteString(fmt.Sprintf("═ Models (%d):", len(names)))
+			for _, name := range names {
+				p, ok := reg.GetProfile(name)
+				mark := " "
+				if name == active {
+					mark = "●"
+				}
+				prov := "?"
+				if ok {
+					prov = p.Provider
+				}
+				b.WriteString(fmt.Sprintf(" %s%s[%s]", mark, name, prov))
+			}
+			m.AddTrace("system", b.String())
+		} else {
+			m.AddTrace("system", "═ No model registry loaded")
 		}
-		if len(profiles) == 0 {
+
+	case cmd == "/stats" || cmd == "/st":
+		reg := m.gateway.Registry()
+		modelCount := 0
+		if reg != nil {
+			modelCount = len(reg.Profiles)
+		}
+		m.AddTrace("system", fmt.Sprintf("═ Models: %d · Active: %s · State: %s · Step: %d · Uptime: %s",
+			modelCount,
+			m.gateway.ActiveModel(),
+			m.gateway.Machine().State().String(),
+			m.gateway.Machine().Step(),
+			time.Since(m.startTime).Round(time.Second).String()))
+
+	case strings.HasPrefix(cmd, "/model "):
+		name := strings.TrimSpace(cmd[7:])
+		if name == "" {
+			m.AddTrace("error", "═ Usage: /model <name> — use /list to see available models")
 			return
 		}
-		for i, name := range profiles {
-			if name == m.gateway.ActiveModel() {
-				next := (i + 1) % len(profiles)
-				m.gateway.SwitchModel(profiles[next])
-				m.AddTrace("system", fmt.Sprintf("Switched model → %s", profiles[next]))
-				break
-			}
+		if m.gateway.Registry() == nil {
+			m.AddTrace("error", "═ No model registry loaded")
+			return
 		}
+		if _, ok := m.gateway.Registry().GetProfile(name); !ok {
+			m.AddTrace("error", fmt.Sprintf("═ Unknown model %q — use /list to see available models", name))
+			return
+		}
+		if err := m.gateway.SwitchModel(name); err != nil {
+			m.AddTrace("error", fmt.Sprintf("═ Switch failed: %v", err))
+		} else {
+			m.AddTrace("system", fmt.Sprintf("✓ Switched model → %s", name))
+		}
+
+	default:
+		m.AddTrace("error", fmt.Sprintf("═ Unknown command: %s — /help for commands", cmd))
 	}
 }
 
+func (m *Model) toggleModelBrowser() {
+	if m.modelBrowserVisible {
+		m.modelBrowserVisible = false
+		return
+	}
+	if m.gateway.Registry() != nil {
+		reg := m.gateway.Registry()
+		m.modelBrowserList = make([]string, 0, len(reg.Profiles))
+		for name := range reg.Profiles {
+			m.modelBrowserList = append(m.modelBrowserList, name)
+		}
+		active := m.gateway.ActiveModel()
+		m.modelBrowserIdx = 0
+		for i, name := range m.modelBrowserList {
+			if name == active {
+				m.modelBrowserIdx = i
+				break
+			}
+		}
+		m.modelBrowserVisible = true
+	}
+}
+
+func (m *Model) renderModelBrowser(overlayWidth int) string {
+	if !m.modelBrowserVisible || len(m.modelBrowserList) == 0 {
+		return ""
+	}
+
+	active := m.gateway.ActiveModel()
+	reg := m.gateway.Registry()
+
+	var lines []string
+	headerColor := PulseColor(m.animFrame)
+
+	title := lipgloss.NewStyle().
+		Foreground(headerColor).
+		Bold(true).
+		Render(fmt.Sprintf("  ◈  SELECT MODEL  ◈  (↑↓ enter  esc)"))
+	lines = append(lines, "", title)
+	lines = append(lines, lipgloss.NewStyle().Foreground(ColorBorder).Render(strings.Repeat("─", overlayWidth-4)))
+
+	for i, name := range m.modelBrowserList {
+		profile, ok := reg.GetProfile(name)
+		if !ok {
+			continue
+		}
+
+		isActive := name == active
+		cursor := "  "
+		nameColor := ColorFg
+		if isActive {
+			cursor = "→ "
+			nameColor = ColorAccent
+		}
+		if i == m.modelBrowserIdx && !isActive {
+			cursor = "▸ "
+			nameColor = PulseColor(m.animFrame)
+		}
+
+		var providerColor lipgloss.Color
+		switch profile.Provider {
+		case "codex":
+			providerColor = ColorToxic
+		case "grep":
+			providerColor = ColorSuccess
+		case "echo":
+			providerColor = ColorFgSubtle
+		case "eval":
+			providerColor = ColorPsychic
+		case "fortune":
+			providerColor = ColorWarning
+		case "system":
+			providerColor = ColorSpiral
+		case "ollama":
+			providerColor = ColorSpiral
+		case "openai-compatible":
+			providerColor = ColorPsychic
+		case "subprocess":
+			providerColor = ColorWarning
+		case "local-fallback":
+			providerColor = ColorError
+		default:
+			providerColor = ColorFgSubtle
+		}
+
+		activeMark := ""
+		if isActive {
+			activeMark = lipgloss.NewStyle().Foreground(ColorSuccess).Render(" ● ACTIVE")
+		}
+
+		providerStr := lipgloss.NewStyle().Foreground(providerColor).Render(profile.Provider)
+		modelStr := lipgloss.NewStyle().Foreground(ColorFgSubtle).Render(profile.Model)
+		nameStr := lipgloss.NewStyle().Foreground(nameColor).Render(cursor + name)
+
+		line := fmt.Sprintf("  %s  [%s]  %s%s", nameStr, providerStr, modelStr, activeMark)
+		if isActive {
+			line = lipgloss.NewStyle().Background(lipgloss.Color("#1a1a2a")).Render(line)
+		} else if i == m.modelBrowserIdx {
+			line = lipgloss.NewStyle().Background(lipgloss.Color("#0a0a18")).Render(line)
+		}
+		lines = append(lines, line)
+	}
+
+	lines = append(lines, lipgloss.NewStyle().Foreground(ColorBorder).Render(strings.Repeat("─", overlayWidth-4)))
+
+	hint := lipgloss.NewStyle().Foreground(ColorFgSubtle).Render("  ↑↓ navigate · enter switch · esc close  ")
+	lines = append(lines, "", hint)
+
+	panel := lipgloss.NewStyle().
+		Border(lipgloss.DoubleBorder()).
+		BorderForeground(headerColor).
+		Padding(0, 1).
+		Width(overlayWidth - 2).
+		Render(strings.Join(lines, "\n"))
+
+	return panel
+}
+
 func (m *Model) View() string {
+	f := m.animFrame
+
 	if !m.ready || len(m.traceItems) < 2 {
 		m.showSplash(m.ready)
 		if !m.ready {
-			return SplashScreen(m.width)
+			return SplashScreen(m.width, f)
 		}
 	}
 
@@ -293,10 +541,8 @@ func (m *Model) View() string {
 		modelName = "none"
 	}
 
-	// Title bar
-	title := TitleBar(version, modelName, state, stateDot)
+	title := TitleBar(version, modelName, state, stateDot, f)
 
-	// Layout dimensions
 	leftWidth := m.width * 42 / 100
 	if leftWidth < 28 {
 		leftWidth = 28
@@ -306,30 +552,24 @@ func (m *Model) View() string {
 		rightWidth = 30
 	}
 
-	// Determine active panel pulse colour
-	borderAccent := PulseColor(m.pulseFrame)
+	borderAccent := PulseColor(f)
 	if m.paused || state == "Error" {
 		borderAccent = ColorBorder
 	}
 
-	// Panels
-	leftPane := renderPanel("MISSION QUEUE", m.missionQueue.View(leftWidth), leftWidth, borderAccent, state == "Running" && !m.paused)
-	tracePane := renderPanel("REASONING TRACE / EVENT STREAM", m.renderTrace(rightWidth), rightWidth, borderAccent, state == "Running" && !m.paused)
-	systemPane := renderPanel("SYSTEM STATUS", m.systemStatus.View(rightWidth), rightWidth, ColorBorder, false)
+	leftPane := renderPanel("ENTITY DIRECTIVES", m.missionQueue.View(leftWidth, f), leftWidth, borderAccent, state == "Running" && !m.paused, f)
+	tracePane := renderPanel("ENTITY CONSCIOUSNESS", m.renderTrace(rightWidth, f), rightWidth, borderAccent, state == "Running" && !m.paused, f)
+	sessionDuration := time.Since(m.startTime)
+	systemPane := renderPanel("VITAL SIGNS", m.systemStatus.View(rightWidth, f, sessionDuration), rightWidth, ColorBorder, false, f)
 
-	// Assemble right column
 	rightCol := lipgloss.JoinVertical(lipgloss.Top, tracePane, "\n", systemPane)
-
-	// Body
 	body := lipgloss.JoinHorizontal(lipgloss.Top, "  ", leftPane, "  ", rightCol, "  ")
 
-	// Review Panel (HITL overlay)
 	var reviewView string
 	if m.reviewPanel != nil && m.reviewPanel.Visible() {
-		reviewView = m.reviewPanel.View(rightWidth)
+		reviewView = m.reviewPanel.View(rightWidth, f)
 	}
 
-	// Footer
 	sessionID := m.gateway.Machine().MissionID()
 	if sessionID == "" {
 		sessionID = "---"
@@ -342,25 +582,109 @@ func (m *Model) View() string {
 	if reviewPending > 0 {
 		footerExtra = fmt.Sprintf("  ⚠ %d review(s) pending", reviewPending)
 	}
-	footer := FooterStyled(sessionID, modelName, fmt.Sprintf("seq:%d", m.lastSeqRead), m.paused, footerExtra)
+	footer := FooterStyled(sessionID, modelName, fmt.Sprintf("seq:%d", m.lastSeqRead), m.paused, f, footerExtra)
 
-	content := lipgloss.JoinVertical(lipgloss.Top, title, "\n", body, "\n", footer)
+	// ── Live Status Bar (Hermes-inspired) ──
+	profile, ok := m.gateway.Registry().ActiveProfile()
+	ctxPct := 0
+	if ok && profile.ContextWindow > 0 {
+		steps := m.gateway.Machine().Step()
+		ctxPct = steps * 3
+		if ctxPct > 95 {
+			ctxPct = 95
+		}
+	}
+	statusModel := m.systemStatus
+	liveBar := LiveStatusBar(f, modelName, ctxPct, time.Since(m.startTime))
+	engPhase := statusModel.EnginePhase()
+	engLine := EngineStatusLine(f, engPhase, statusModel.SkillCount(), statusModel.KnowledgeCount(), statusModel.HealerRecoveryRate())
+
+	statusBar := lipgloss.NewStyle().
+		Foreground(ColorBorder).
+		Render(strings.Repeat("─", m.width-4))
+	statusBarContent := lipgloss.JoinVertical(lipgloss.Top,
+		statusBar,
+		liveBar,
+		engLine)
+
+	quickBar := renderQuickBar(m.width-4, f)
+	content := lipgloss.JoinVertical(lipgloss.Top, title, "\n", body, "\n", statusBarContent, "\n", quickBar, "\n", footer)
 	if reviewView != "" {
 		content = lipgloss.JoinVertical(lipgloss.Top, content, "\n", reviewView)
+	}
+	if m.commandMode {
+		cmdBar := m.renderCommandBar(m.width - 4)
+		content = lipgloss.JoinVertical(lipgloss.Top, content, "\n", cmdBar)
+	}
+	if m.modelBrowserVisible {
+		browserOverlay := m.renderModelBrowser(m.width - 4)
+		if browserOverlay != "" {
+			overlayBox := lipgloss.NewStyle().
+				Width(m.width).
+				Align(lipgloss.Center).
+				Render(browserOverlay)
+			content = lipgloss.JoinVertical(lipgloss.Top, content, "\n\n", overlayBox)
+		}
 	}
 	return content + "\n"
 }
 
-func (m *Model) renderTrace(width int) string {
-	now := time.Now()
-	items := make([]string, 0, len(m.traceItems))
-	start := 0
-	if len(m.traceItems) > m.maxVisible {
-		start = len(m.traceItems) - m.maxVisible
+func (m *Model) renderCommandBar(width int) string {
+	prompt := "/ "
+	display := prompt + m.commandBuffer
+	cursor := " "
+	if time.Now().UnixMilli()/500%2 == 0 {
+		cursor = "▌"
 	}
-	for _, t := range m.traceItems[start:] {
+	display += cursor
+
+	bar := lipgloss.NewStyle().
+		Border(lipgloss.NormalBorder()).
+		BorderForeground(PulseColor(m.animFrame)).
+		Padding(0, 1).
+		Width(width - 2).
+		Render(lipgloss.NewStyle().Foreground(ColorAccent).Render(display))
+
+	return bar
+}
+
+func installUnsloth() error {
+	python := findPython()
+	if python == "" {
+		return fmt.Errorf("python3 not found — install Python first: https://python.org")
+	}
+	cmd := exec.Command(python, "-m", "pip", "install", "unsloth", "transformers", "torch", "accelerate")
+	cmd.Stdout = nil
+	cmd.Stderr = nil
+	return cmd.Run()
+}
+
+func findPython() string {
+	for _, name := range []string{"python3", "python"} {
+		path, err := exec.LookPath(name)
+		if err == nil {
+			return path
+		}
+	}
+	return ""
+}
+
+func (m *Model) renderTrace(width int, frame int) string {
+	now := time.Now()
+	m.traceMu.Lock()
+	total := len(m.traceItems)
+	start := 0
+	if total > m.maxVisible {
+		start = total - m.maxVisible
+	}
+	snapshot := make([]TraceEntry, total-start)
+	copy(snapshot, m.traceItems[start:])
+	m.traceMu.Unlock()
+
+	items := make([]string, 0, len(snapshot))
+	for _, t := range snapshot {
 		age := now.Sub(t.Timestamp)
-		items = append(items, TraceItemStyled(t.Timestamp, t.Message, age, width-2))
+		items = append(items, TraceItemStyled(t.Timestamp, t.Message, age, width-2, frame))
 	}
 	content := strings.Join(items, "\n")
 	if content == "" {
@@ -370,25 +694,27 @@ func (m *Model) renderTrace(width int) string {
 }
 
 func (m *Model) AddTrace(level, msg string) {
+	m.traceMu.Lock()
 	m.traceItems = append(m.traceItems, TraceEntry{
 		Timestamp: time.Now().UTC(),
 		Message:   msg,
 		Level:     level,
 	})
+	m.traceMu.Unlock()
 }
 
 func (m *Model) Quitting() bool {
 	return m.quitting
 }
 
-// ── Panel Renderer ───────────────────────────────────────────────
+// ── Panel Renderer ──────────────────────────────────────────
 
-func renderPanel(header, content string, width int, accent lipgloss.Color, active bool) string {
+func renderPanel(header, content string, width int, accent lipgloss.Color, active bool, frame int) string {
 	panelStyle := lipgloss.NewStyle().
 		Width(width).
 		Border(lipgloss.NormalBorder()).
 		BorderForeground(accent).
 		Padding(0, 1)
-	head := PanelHeader(header, width, accent)
+	head := PanelHeader(header, width, accent, frame)
 	return panelStyle.Render(head + "\n" + content)
 }

@@ -3,17 +3,38 @@ package dashboard
 import (
 	"fmt"
 	"os"
+	"os/exec"
+	"runtime"
 	"strings"
+	"sync"
+	"time"
 
+	"github.com/M523zappin/Curse-Core/internal/engine"
 	"github.com/M523zappin/Curse-Core/internal/gateway"
 	"github.com/M523zappin/Curse-Core/internal/persistence"
 	"github.com/M523zappin/Curse-Core/internal/statemachine"
+	"github.com/charmbracelet/lipgloss"
 )
 
+type GitStatus struct {
+	Branch   string `json:"branch"`
+	Dirty    bool   `json:"dirty"`
+	Ahead    int    `json:"ahead"`
+	Behind   int    `json:"behind"`
+	Untracked int   `json:"untracked"`
+	LastCommit string `json:"last_commit"`
+}
+
 type SystemStatusModel struct {
-	gateway *gateway.Gateway
-	pid     int
-	lastCP  *persistence.Checkpoint
+	gateway    *gateway.Gateway
+	pid        int
+	lastCP     *persistence.Checkpoint
+
+	gitCache   *GitStatus
+	gitMu      sync.Mutex
+	lastGitPoll time.Time
+
+	lastMem     runtime.MemStats
 }
 
 func NewSystemStatusModel(gw *gateway.Gateway) *SystemStatusModel {
@@ -23,92 +44,370 @@ func NewSystemStatusModel(gw *gateway.Gateway) *SystemStatusModel {
 	}
 }
 
+func (m *SystemStatusModel) SessionID() string { return m.gateway.SessionID() }
+
+func (m *SystemStatusModel) EnginePhase() engine.Phase {
+	eng := m.gateway.Engine()
+	if eng == nil {
+		return engine.PhaseIdle
+	}
+	return eng.Phase()
+}
+
+func (m *SystemStatusModel) SkillCount() int {
+	sk := m.gateway.Skills()
+	if sk == nil {
+		return 0
+	}
+	return sk.Count()
+}
+
+func (m *SystemStatusModel) KnowledgeCount() int {
+	kn := m.gateway.Knowledge()
+	if kn == nil {
+		return 0
+	}
+	return kn.Count()
+}
+
+func (m *SystemStatusModel) HealerRecoveryRate() float64 {
+	hl := m.gateway.Healer()
+	if hl == nil {
+		return 1.0
+	}
+	return hl.RecoveryRate()
+}
+
+func (m *SystemStatusModel) EngineStatus() string {
+	eng := m.gateway.Engine()
+	if eng == nil {
+		return "offline"
+	}
+	if eng.Running() {
+		return "online"
+	}
+	return "offline"
+}
+
 func (m *SystemStatusModel) SetCheckpoint(cp *persistence.Checkpoint) {
 	m.lastCP = cp
 }
 
 func (m *SystemStatusModel) Update(msg interface{}) {
+	runtime.ReadMemStats(&m.lastMem)
 }
 
-func (m *SystemStatusModel) View(width int) string {
+func (m *SystemStatusModel) pollGit() {
+	m.gitMu.Lock()
+	defer m.gitMu.Unlock()
+
+	if time.Since(m.lastGitPoll) < 10*time.Second && m.gitCache != nil {
+		return
+	}
+	m.lastGitPoll = time.Now()
+
+	cwd, err := os.Getwd()
+	if err != nil {
+		return
+	}
+
+	gs := &GitStatus{}
+
+	if branch := runGit(cwd, "rev-parse", "--abbrev-ref", "HEAD"); branch != "" {
+		gs.Branch = branch
+	}
+
+	if status := runGit(cwd, "status", "--porcelain"); status != "" {
+		gs.Dirty = true
+		lines := strings.Split(strings.TrimSpace(status), "\n")
+		for _, l := range lines {
+			if len(l) > 0 && l[0] == '?' {
+				gs.Untracked++
+			}
+		}
+	}
+
+	if log := runGit(cwd, "log", "--oneline", "-1"); log != "" {
+		if len(log) > 50 {
+			log = log[:50]
+		}
+		gs.LastCommit = log
+	}
+
+	m.gitCache = gs
+}
+
+func runGit(cwd string, args ...string) string {
+	cmd := exec.Command("git", args...)
+	cmd.Dir = cwd
+	out, err := cmd.Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(out))
+}
+
+func (m *SystemStatusModel) GitStatus() *GitStatus {
+	m.pollGit()
+	m.gitMu.Lock()
+	defer m.gitMu.Unlock()
+	return m.gitCache
+}
+
+func ContextBar(pct int, width int) string {
+	if width < 10 {
+		width = 10
+	}
+	if pct < 0 {
+		pct = 0
+	}
+	if pct > 100 {
+		pct = 100
+	}
+	filled := pct * (width - 2) / 100
+	if filled > width-2 {
+		filled = width - 2
+	}
+	empty := (width - 2) - filled
+	fillStr := strings.Repeat("█", filled)
+	emptyStr := strings.Repeat("░", empty)
+
+	var color lipgloss.Color
+	switch {
+	case pct < 50:
+		color = ColorSuccess
+	case pct < 80:
+		color = ColorWarning
+	default:
+		color = ColorError
+	}
+
+	bar := lipgloss.NewStyle().Foreground(color).Render("[" + fillStr + emptyStr + "]")
+	pctStr := lipgloss.NewStyle().Foreground(ColorFgSubtle).Render(fmt.Sprintf(" %d%%", pct))
+	return bar + pctStr
+}
+
+func FormatDuration(d time.Duration) string {
+	h := int(d.Hours())
+	m := int(d.Minutes()) % 60
+	s := int(d.Seconds()) % 60
+	return fmt.Sprintf("%02d:%02d:%02d", h, m, s)
+}
+
+func LiveStatusBar(f int, modelName string, pct int, dur time.Duration) string {
+	bar := ContextBar(pct, 14)
+	modelPart := lipgloss.NewStyle().Foreground(ColorAccent).Render(modelName)
+	durPart := lipgloss.NewStyle().Foreground(ColorFgSubtle).Render(FormatDuration(dur))
+	dot := StatusDot(DotSecure, f)
+	return fmt.Sprintf(" %s %s  %s  %s", dot, modelPart, bar, durPart)
+}
+
+func EngineStatusLine(f int, phase engine.Phase, skillCount, knowledgeCount int, recoveryRate float64) string {
+	var phaseColor lipgloss.Color
+	switch phase {
+	case engine.PhaseIdle:
+		phaseColor = ColorFgSubtle
+	case engine.PhasePlanning, engine.PhaseDispatching:
+		phaseColor = ColorProcessing
+	case engine.PhaseExecuting:
+		phaseColor = ColorAccentPulse
+	case engine.PhaseCollecting:
+		phaseColor = ColorWarning
+	case engine.PhaseLearning:
+		phaseColor = ColorToxic
+	default:
+		phaseColor = ColorFgInactive
+	}
+	phaseStr := lipgloss.NewStyle().Foreground(phaseColor).Render(string(phase))
+	skillsStr := lipgloss.NewStyle().Foreground(ColorPsychic).Render(fmt.Sprintf("%d skills", skillCount))
+	knStr := lipgloss.NewStyle().Foreground(ColorFgSubtle).Render(fmt.Sprintf("%d mem", knowledgeCount))
+	rr := lipgloss.NewStyle().Foreground(ColorSuccess).Render(fmt.Sprintf("%.0f%% heal", recoveryRate*100))
+	return fmt.Sprintf(" %s %s  %s  %s  %s", Spinner(f), phaseStr, skillsStr, knStr, rr)
+}
+
+func (m *SystemStatusModel) View(width int, frame int, sessionDuration time.Duration) string {
 	machine := m.gateway.Machine()
 	state := machine.State()
 
+	var lines []string
+
+	divider := lipgloss.NewStyle().Foreground(ColorBorder).Render(strings.Repeat("─", width-2))
+
+	// ── Entity identity section ──
+	lines = append(lines, fmt.Sprintf("  %s %s",
+		lipgloss.NewStyle().Foreground(ColorFgSubtle).Render("vessel"),
+		lipgloss.NewStyle().Foreground(ColorFg).Render(fmt.Sprintf("● %s  PID %d", getHostname(), m.pid))))
+
 	stateDot := DotSecure
+	stateLabel := state.String()
+	if m.lastCP != nil {
+		stateLabel = m.lastCP.State.String()
+	}
 	if state == statemachine.StateError {
 		stateDot = DotError
 	} else if state == statemachine.StateRunning {
 		stateDot = DotProcessing
 	}
 
-	stateLabel := state.String()
-	if m.lastCP != nil {
-		stateLabel = m.lastCP.State.String()
+	enginePhase := m.EnginePhase()
+	phaseColor := getPhaseColor(enginePhase)
+
+	lines = append(lines, fmt.Sprintf("  %s %s  %s %s  %s  %s cycle",
+		lipgloss.NewStyle().Foreground(ColorFgSubtle).Render("state"),
+		coloredStatus(stateLabel, stateDot, frame),
+		lipgloss.NewStyle().Foreground(ColorFgSubtle).Render("engine"),
+		lipgloss.NewStyle().Foreground(phaseColor).Render(string(enginePhase)),
+		lipgloss.NewStyle().Foreground(ColorFgSubtle).Render(fmt.Sprintf("%d", machine.Step())),
+		lipgloss.NewStyle().Foreground(ColorFgSubtle).Render("")))
+
+	lines = append(lines, divider)
+
+	// ── Resource vitals section ──
+	var vitalsStr string
+	var mem runtime.MemStats
+	runtime.ReadMemStats(&mem)
+	memMB := mem.Alloc / 1024 / 1024
+	totalMB := mem.Sys / 1024 / 1024
+
+	goros := runtime.NumGoroutine()
+
+	vitalsStr = fmt.Sprintf("%s %dG  %s %dM/%dM  %s %d",
+		coloredLabel("CPU", ColorProcessing), runtime.NumCPU(),
+		coloredLabel("MEM", ColorSpiral), memMB, totalMB,
+		coloredLabel("GO", ColorToxic), goros)
+
+	lines = append(lines, fmt.Sprintf("  %s", vitalsStr))
+
+	sparkLine := RenderSystemSparklines()
+	if sparkLine != "" {
+		lines = append(lines, "  "+sparkLine)
 	}
 
-	var lines []string
-
-	// Daemon info
-	lines = append(lines, StatusLineStyled("Daemon", fmt.Sprintf("● %s  PID %d", getHostname(), m.pid), DotSecure, false))
-	lines = append(lines, StatusLineStyled("State", stateLabel, stateDot, state == statemachine.StateRunning))
-	lines = append(lines, StatusLineStyled("Steps", fmt.Sprintf("%d", machine.Step()), DotSecure, false))
-
-	// Checkpoint info
-	if m.lastCP != nil {
-		lines = append(lines, StatusLineStyled("CP Sequence", fmt.Sprintf("%d", m.lastCP.Sequence), DotSecure, false))
-		lines = append(lines, StatusLineStyled("CP Step", fmt.Sprintf("%d", m.lastCP.Step), DotSecure, false))
-		lines = append(lines, StatusLineStyled("Mission", truncate(m.lastCP.MissionID, 20), DotSecure, false))
-	} else {
-		lines = append(lines, StatusLineStyled("Checkpoint", "none", DotSecure, false))
+	// ── Git section ──
+	git := m.GitStatus()
+	if git != nil && git.Branch != "" {
+		branchColor := ColorToxic
+		dirtyMark := ""
+		if git.Dirty {
+			dirtyMark = lipgloss.NewStyle().Foreground(ColorWarning).Render(" ●dirty")
+		}
+		untrackedMark := ""
+		if git.Untracked > 0 {
+			untrackedMark = lipgloss.NewStyle().Foreground(ColorFgSubtle).Render(fmt.Sprintf(" +%d", git.Untracked))
+		}
+		commitStr := ""
+		if git.LastCommit != "" {
+			commitStr = lipgloss.NewStyle().Foreground(ColorFgSubtle).Render("  " + git.LastCommit)
+		}
+		branchStr := lipgloss.NewStyle().Foreground(branchColor).Render(fmt.Sprintf("⎇ %s", git.Branch))
+		lines = append(lines, fmt.Sprintf("  %s %s%s%s",
+			coloredLabel("git", ColorFgSubtle), branchStr, dirtyMark, untrackedMark))
+		_ = commitStr
 	}
 
-	// Queue
-	lines = append(lines, StatusLineStyled("Queue", fmt.Sprintf("%d missions", m.gateway.Queue().Len()), DotSecure, false))
-
-	// Model info
+	// ── Model info section ──
 	modelName := m.gateway.ActiveModel()
 	if modelName == "" {
 		modelName = "none"
 	}
-	lines = append(lines, StatusLineStyled("Model", modelName, DotSecure, false))
+	lines = append(lines, fmt.Sprintf("  %s %s",
+		coloredLabel("model", ColorAccent), modelName))
 
 	if m.gateway.Registry() != nil {
 		profile, ok := m.gateway.Registry().ActiveProfile()
 		if ok {
-			lines = append(lines, StatusLineStyled("Provider", profile.Provider, DotSecure, false))
-			lines = append(lines, StatusLineStyled("Window", fmt.Sprintf("%d tokens", profile.ContextWindow), DotSecure, false))
+			providerColor := getProviderColor(profile.Provider)
+			lines = append(lines, fmt.Sprintf("  %s %s  %s ctx",
+				coloredLabel("via", ColorFgSubtle),
+				lipgloss.NewStyle().Foreground(providerColor).Render(profile.Provider),
+				lipgloss.NewStyle().Foreground(ColorFgSubtle).Render(fmt.Sprintf("%d", profile.ContextWindow))))
 		}
 	}
 
-	// Computer Controller status
+	lines = append(lines, divider)
+
+	// ── Service status section ──
+	engStatus := m.EngineStatus()
+	engDot := DotSecure
+	if engStatus == "offline" {
+		engDot = DotError
+	}
+	lines = append(lines, fmt.Sprintf("  %s %s  %s %d  %s %d",
+		fmt.Sprintf("%s engine", StatusDot(engDot, frame)),
+		coloredLabel(engStatus, getEngineStatusColor(engStatus)),
+		fmt.Sprintf("%s skills", coloredLabel("", ColorPsychic)),
+		m.SkillCount(),
+		fmt.Sprintf("%s mem", coloredLabel("", ColorFgSubtle)),
+		m.KnowledgeCount(),
+	))
+
 	comp := m.gateway.Computer()
 	if comp != nil {
 		buf := comp.VisionBuffer()
-		bufSize := len(buf)
-		bufDot := DotProcessing
-		if bufSize > 0 {
-			bufDot = DotSecure
-		}
-		lines = append(lines, StatusLineStyled("Vision", fmt.Sprintf("%d frames", bufSize), bufDot, false))
 		reviewMgr := m.gateway.ReviewManager()
+		pending := 0
 		if reviewMgr != nil {
-			pending := reviewMgr.PendingCount()
-			reviewDot := DotProcessing
-			if pending == 0 {
-				reviewDot = DotSecure
-			}
-			lines = append(lines, StatusLineStyled("Reviews", fmt.Sprintf("%d pending", pending), reviewDot, pending > 0))
+			pending = reviewMgr.PendingCount()
 		}
+		lines = append(lines, fmt.Sprintf("  %s %d  %s %d",
+			coloredLabel("vision", ColorProcessing), len(buf),
+			coloredLabel("review", ColorWarning), pending))
 	}
 
-	// SHA256 chain status
-	chainDot := DotSecure
-	if state == statemachine.StateError {
-		chainDot = DotError
+	if m.lastCP != nil {
+		lines = append(lines, fmt.Sprintf("  %s seq:%d step:%d",
+			coloredLabel("recovery", ColorFgSubtle),
+			m.lastCP.Sequence, m.lastCP.Step))
 	}
-	lines = append(lines, "", StatusLineStyled("SHA256 Chain", "INTACT", chainDot, false))
 
 	return strings.Join(lines, "\n")
+}
+
+func coloredLabel(label string, color lipgloss.Color) string {
+	return lipgloss.NewStyle().Foreground(color).Render(label)
+}
+
+func coloredStatus(label string, dot DotStatus, frame int) string {
+	dotStr := StatusDot(dot, frame)
+	return fmt.Sprintf("%s %s", dotStr, lipgloss.NewStyle().Foreground(ColorFg).Render(label))
+}
+
+func getProviderColor(provider string) lipgloss.Color {
+	switch provider {
+	case "codex", "grep":
+		return ColorToxic
+	case "eval":
+		return ColorPsychic
+	case "echo":
+		return ColorFgSubtle
+	case "fortune":
+		return ColorWarning
+	case "system":
+		return ColorSpiral
+	case "unsloth":
+		return ColorAccent
+	case "ollama":
+		return ColorSpiral
+	case "openai-compatible":
+		return ColorPsychic
+	case "subprocess":
+		return ColorWarning
+	case "local-fallback":
+		return ColorError
+	default:
+		return ColorFgSubtle
+	}
+}
+
+func getEngineStatusColor(status string) lipgloss.Color {
+	switch status {
+	case "online":
+		return ColorSuccess
+	case "offline":
+		return ColorError
+	default:
+		return ColorFgSubtle
+	}
 }
 
 func getHostname() string {
@@ -124,4 +423,23 @@ func truncate(s string, n int) string {
 		return s
 	}
 	return s[:n-3] + "..."
+}
+
+func getPhaseColor(p engine.Phase) lipgloss.Color {
+	switch p {
+	case engine.PhaseIdle:
+		return ColorFgSubtle
+	case engine.PhasePlanning:
+		return ColorSpiral
+	case engine.PhaseDispatching:
+		return ColorProcessing
+	case engine.PhaseExecuting:
+		return ColorAccentPulse
+	case engine.PhaseCollecting:
+		return ColorWarning
+	case engine.PhaseLearning:
+		return ColorToxic
+	default:
+		return ColorFgInactive
+	}
 }

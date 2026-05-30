@@ -65,7 +65,7 @@ type Agent struct {
 	CurrentTask string       `json:"current_task,omitempty"`
 	StartedAt   time.Time    `json:"started_at"`
 	TaskCount   int          `json:"task_count"`
-	mu          sync.Mutex
+	mu          *sync.Mutex
 	taskQueue   []Task
 }
 
@@ -97,6 +97,7 @@ func (f *Fleet) RegisterRole(role AgentRole, count int) {
 			ID:        fmt.Sprintf("%s-%d", role, i+1),
 			Status:    StatusIdle,
 			StartedAt: time.Now(),
+			mu:        &sync.Mutex{},
 		}
 		f.agents[agent.ID] = agent
 	}
@@ -160,9 +161,27 @@ func (f *Fleet) AssignNext(ctx context.Context) *TaskResult {
 		agent.TaskCount++
 
 		go func(a *Agent, t Task) {
+			var recovered bool
+			defer func() {
+				if r := recover(); r != nil {
+					recovered = true
+					f.mu.Lock()
+					a.Status = StatusIdle
+					a.CurrentTask = ""
+					f.results[t.ID] = &TaskResult{
+						TaskID:  t.ID,
+						Success: false,
+						Error:   fmt.Sprintf("panic: %v", r),
+					}
+					f.mu.Unlock()
+				}
+			}()
 			result := f.execute(a, t)
+			if recovered {
+				return
+			}
 			f.mu.Lock()
-			a.Status = StatusCompleted
+			a.Status = StatusIdle
 			a.CurrentTask = ""
 			f.results[t.ID] = result
 			f.mu.Unlock()
@@ -177,9 +196,10 @@ func (f *Fleet) AssignNext(ctx context.Context) *TaskResult {
 func (f *Fleet) dependenciesMet(task *Task) bool {
 	for _, depID := range task.DependsOn {
 		result, exists := f.results[depID]
-		if !exists || !result.Success {
+		if !exists {
 			return false
 		}
+		_ = result
 	}
 	return true
 }

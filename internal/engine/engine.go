@@ -1,0 +1,487 @@
+package engine
+
+import (
+	"context"
+	"fmt"
+	"runtime/debug"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/M523zappin/Curse-Core/internal/agent"
+	"github.com/M523zappin/Curse-Core/internal/healing"
+	"github.com/M523zappin/Curse-Core/internal/knowledge"
+	"github.com/M523zappin/Curse-Core/internal/mission"
+	"github.com/M523zappin/Curse-Core/internal/skill"
+)
+
+type Phase string
+
+const (
+	PhaseIdle      Phase = "idle"
+	PhasePlanning  Phase = "planning"
+	PhaseDispatching Phase = "dispatching"
+	PhaseExecuting Phase = "executing"
+	PhaseCollecting Phase = "collecting"
+	PhaseLearning  Phase = "learning"
+)
+
+type Status struct {
+	Phase      Phase
+	MissionID  string
+	TaskCount  int
+	DoneCount  int
+	SkillCount int
+}
+
+type Metrics struct {
+	MissionsProcessed   int64
+	TasksCompleted      int64
+	SkillsGenerated     int64
+	TotalDuration       time.Duration
+	LastMissionDuration time.Duration
+}
+
+type Engine struct {
+	queue     *mission.Queue
+	fleet     *agent.Fleet
+	skills    *skill.Store
+	knowledge *knowledge.Index
+	healer    *healing.HealingLoop
+
+	ctx     context.Context
+	cancel  context.CancelFunc
+	onTrace func(string, string)
+	ticker  *time.Ticker
+
+	mu       sync.Mutex
+	running  bool
+	phase    Phase
+	statusFn func(Status)
+
+	metrics   Metrics
+	metricsMu sync.Mutex
+}
+
+func New(
+	queue *mission.Queue,
+	fleet *agent.Fleet,
+	skills *skill.Store,
+	knowledge *knowledge.Index,
+	healer *healing.HealingLoop,
+) *Engine {
+	return &Engine{
+		queue:     queue,
+		fleet:     fleet,
+		skills:    skills,
+		knowledge: knowledge,
+		healer:    healer,
+		phase:     PhaseIdle,
+	}
+}
+
+func (e *Engine) SetTraceHook(h func(string, string)) {
+	e.onTrace = h
+}
+
+func (e *Engine) SetStatusHook(h func(Status)) {
+	e.statusFn = h
+}
+
+func (e *Engine) trace(level, msg string) {
+	if e.onTrace != nil {
+		e.onTrace(level, msg)
+	}
+}
+
+func (e *Engine) emitStatus() {
+	e.mu.Lock()
+	s := Status{
+		Phase:      e.phase,
+		SkillCount: e.skills.Count(),
+	}
+	results := e.fleet.CompletedTasks()
+	s.DoneCount = len(results)
+	s.MissionID = ""
+	if m := e.queue.Peek(); m != nil {
+		s.MissionID = m.ID
+	}
+	s.TaskCount = e.fleet.TaskCount()
+	e.mu.Unlock()
+
+	if e.statusFn != nil {
+		e.statusFn(s)
+	}
+}
+
+func (e *Engine) Metrics() Metrics {
+	e.metricsMu.Lock()
+	defer e.metricsMu.Unlock()
+	return e.metrics
+}
+
+func (e *Engine) Run(ctx context.Context) {
+	e.mu.Lock()
+	if e.running {
+		e.mu.Unlock()
+		return
+	}
+	e.running = true
+	e.ctx, e.cancel = context.WithCancel(ctx)
+	e.ticker = time.NewTicker(1 * time.Second)
+	e.phase = PhaseIdle
+	e.mu.Unlock()
+
+	e.trace("system", "engine loop started")
+	e.emitStatus()
+
+	for {
+		select {
+		case <-e.ctx.Done():
+			e.ticker.Stop()
+			e.mu.Lock()
+			e.running = false
+			e.phase = PhaseIdle
+			e.mu.Unlock()
+			e.trace("system", "engine loop stopped")
+			return
+
+		case <-e.ticker.C:
+			e.Tick()
+		}
+	}
+}
+
+func (e *Engine) Stop() {
+	e.mu.Lock()
+	cancel := e.cancel
+	e.mu.Unlock()
+	if cancel != nil {
+		cancel()
+	}
+}
+
+func (e *Engine) Running() bool {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	return e.running
+}
+
+func (e *Engine) Phase() Phase {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	return e.phase
+}
+
+func (e *Engine) Tick() {
+	defer func() {
+		if r := recover(); r != nil {
+			e.trace("error", fmt.Sprintf("engine tick panic: %v\n%s", r, debug.Stack()))
+			e.mu.Lock()
+			e.phase = PhaseIdle
+			e.mu.Unlock()
+			e.emitStatus()
+		}
+	}()
+
+	e.mu.Lock()
+	e.phase = PhasePlanning
+	e.mu.Unlock()
+
+	m := e.queue.Dequeue()
+	if m == nil {
+		e.mu.Lock()
+		e.phase = PhaseIdle
+		e.mu.Unlock()
+		e.trace("system", "no missions pending")
+		e.emitStatus()
+		return
+	}
+
+	missionStart := time.Now()
+	e.trace("mission", fmt.Sprintf("processing mission: %s", m.Task))
+	e.emitStatus()
+
+	relevantSkills := e.skills.Search(m.Task, 5)
+	if len(relevantSkills) > 0 {
+		e.trace("skill", fmt.Sprintf("found %d relevant skills for: %s", len(relevantSkills), m.Task))
+		for _, sk := range relevantSkills {
+			e.trace("skill", fmt.Sprintf("  ↳ %s (%s)", sk.Name, sk.Description))
+		}
+	}
+
+	e.mu.Lock()
+	e.phase = PhaseDispatching
+	e.mu.Unlock()
+
+	tasks := e.planTasks(m, relevantSkills)
+	for _, t := range tasks {
+		if err := e.fleet.Enqueue(t); err != nil {
+			e.trace("error", fmt.Sprintf("enqueue task: %v", err))
+			if e.healer != nil {
+				e.healer.Handle("engine", err)
+			}
+		}
+	}
+
+	e.mu.Lock()
+	e.phase = PhaseExecuting
+	e.mu.Unlock()
+
+	e.dispatchFleet()
+	results := e.collectResults(m.ID)
+
+	e.mu.Lock()
+	e.phase = PhaseCollecting
+	e.mu.Unlock()
+
+	e.processResults(m, results)
+
+	e.mu.Lock()
+	e.phase = PhaseLearning
+	e.mu.Unlock()
+
+	e.learnFromMission(m, results)
+
+	missionDur := time.Since(missionStart)
+	e.metricsMu.Lock()
+	e.metrics.MissionsProcessed++
+	e.metrics.TasksCompleted += int64(len(results))
+	e.metrics.TotalDuration += missionDur
+	e.metrics.LastMissionDuration = missionDur
+	e.metricsMu.Unlock()
+
+	e.trace("mission", fmt.Sprintf("mission complete in %s: %s", missionDur.Round(time.Millisecond), m.Task))
+
+	e.mu.Lock()
+	e.phase = PhaseIdle
+	e.mu.Unlock()
+	e.emitStatus()
+}
+
+func (e *Engine) dispatchFleet() {
+	defer func() {
+		if r := recover(); r != nil {
+			e.trace("error", fmt.Sprintf("dispatch panic: %v", r))
+		}
+	}()
+
+	ctx := e.ctx
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	for i := 0; i < 100; i++ {
+		e.fleet.AssignNext(ctx)
+		pending := e.fleet.PendingTasks()
+		if len(pending) == 0 {
+			return
+		}
+	}
+	e.trace("system", "dispatch reached max iterations, some tasks may be pending")
+}
+
+func (e *Engine) collectResults(missionID string) (results []agent.TaskResult) {
+	defer func() {
+		if r := recover(); r != nil {
+			e.trace("error", fmt.Sprintf("collect panic: %v", r))
+			results = e.fleet.CompletedTasks()
+		}
+	}()
+
+	timeout := time.After(5 * time.Minute)
+	ticker := time.NewTicker(50 * time.Millisecond)
+	defer ticker.Stop()
+
+	e.dispatchFleet()
+
+	for {
+		select {
+		case <-timeout:
+			e.trace("error", "collection timed out after 5 minutes")
+			return e.fleet.CompletedTasks()
+		case <-ticker.C:
+			e.dispatchFleet()
+			results := e.fleet.CompletedTasks()
+			pending := e.fleet.PendingTasks()
+			if len(pending) == 0 && len(results) > 0 {
+				return results
+			}
+		}
+	}
+}
+
+func (e *Engine) planTasks(m *mission.Mission, relevantSkills []*skill.Skill) []agent.Task {
+	var tasks []agent.Task
+
+	contextData := map[string]interface{}{
+		"mission_id":   m.ID,
+		"mission_task": m.Task,
+		"tags":         m.Tags,
+	}
+
+	if e.knowledge != nil {
+		recent := e.knowledge.QueryContext(5)
+		contextData["context_entries"] = len(recent)
+		if len(recent) > 0 {
+			var refs []string
+			for _, k := range recent {
+				refs = append(refs, k.Title)
+			}
+			contextData["recent_knowledge"] = refs
+		}
+	}
+
+	if len(relevantSkills) > 0 {
+		var skillNames []string
+		for _, sk := range relevantSkills {
+			skillNames = append(skillNames, sk.Name)
+		}
+		contextData["relevant_skills"] = skillNames
+	}
+
+	tasks = append(tasks, agent.Task{
+		ID:          fmt.Sprintf("%s-analysis", m.ID),
+		Role:        agent.RoleArchitect,
+		Description: fmt.Sprintf("Analyze mission: %s", m.Task),
+		Payload:     contextData,
+		Priority:    agent.PriorityHigh,
+	})
+
+	execPayload := map[string]interface{}{
+		"mission_id":   m.ID,
+		"mission_task": m.Task,
+		"model_hint":   m.ModelHint,
+	}
+
+	if e.knowledge != nil {
+		execPayload["recent_knowledge"] = contextData["recent_knowledge"]
+	}
+
+	tasks = append(tasks, agent.Task{
+		ID:          fmt.Sprintf("%s-exec", m.ID),
+		Role:        agent.RoleRefactor,
+		Description: fmt.Sprintf("Execute: %s", m.Task),
+		Payload:     execPayload,
+		Priority:    agent.PriorityNormal,
+		DependsOn:   []string{fmt.Sprintf("%s-analysis", m.ID)},
+	})
+
+	tasks = append(tasks, agent.Task{
+		ID:          fmt.Sprintf("%s-review", m.ID),
+		Role:        agent.RoleReviewer,
+		Description: fmt.Sprintf("Review results for: %s", m.Task),
+		Payload: map[string]interface{}{
+			"mission_id": m.ID,
+		},
+		Priority: agent.PriorityNormal,
+		DependsOn: []string{fmt.Sprintf("%s-exec", m.ID)},
+	})
+
+	return tasks
+}
+
+func (e *Engine) processResults(m *mission.Mission, results []agent.TaskResult) {
+	pendingLearnTasks := 0
+	for _, t := range e.fleet.PendingTasks() {
+		if strings.Contains(t.ID, "-learn") {
+			pendingLearnTasks++
+		}
+	}
+
+	for _, r := range results {
+		level := "task"
+		if !r.Success {
+			level = "error"
+			if e.healer != nil {
+				e.healer.Handle("engine:task", fmt.Errorf("task %s failed: %s", r.TaskID, r.Error))
+			}
+		}
+		e.trace(level, fmt.Sprintf("task %s: %s", r.TaskID, r.Output))
+
+		if pendingLearnTasks >= 5 {
+			continue
+		}
+
+		e.fleet.Enqueue(agent.Task{
+			ID:          fmt.Sprintf("%s-learn", r.TaskID),
+			Role:        agent.RoleDocWriter,
+			Description: fmt.Sprintf("Record knowledge from task %s", r.TaskID),
+			Payload: map[string]interface{}{
+				"task_id": r.TaskID,
+				"output":  r.Output,
+				"success": r.Success,
+			},
+			Priority: agent.PriorityLow,
+		})
+		pendingLearnTasks++
+	}
+}
+
+func (e *Engine) learnFromMission(m *mission.Mission, results []agent.TaskResult) {
+	if e.knowledge == nil {
+		return
+	}
+
+	body := fmt.Sprintf("Mission: %s\nTags: %v\nResults: %d tasks\n", m.Task, m.Tags, len(results))
+	successes := 0
+	for _, r := range results {
+		if r.Success {
+			successes++
+		}
+	}
+	body += fmt.Sprintf("Success rate: %d/%d\n", successes, len(results))
+
+	e.knowledge.Add(knowledge.KnowledgeEntry{
+		Type:  knowledge.TypeDecision,
+		Title: fmt.Sprintf("Mission: %s", truncateStr(m.Task, 80)),
+		Body:  body,
+		Tags:  append(m.Tags, "mission", "completed"),
+	})
+
+	if successes == len(results) && len(results) > 0 {
+		words := strings.Fields(m.Task)
+		skillName := "Auto-"
+		if len(words) >= 1 {
+			skillName += words[0]
+			if len(words) >= 2 {
+				skillName += "-" + words[1]
+				if len(words) >= 3 {
+					skillName += "-" + words[2]
+				}
+			}
+		} else {
+			skillName += "task"
+		}
+		pattern := m.Task
+		if len(pattern) > 80 {
+			pattern = pattern[:80]
+		}
+
+		skill := e.skills.Generate(skillName, m.Task, pattern, []string{
+			fmt.Sprintf("Analyze: %s", m.Task),
+			"Execute with fleet agents",
+			"Review results",
+			"Record knowledge",
+		}, append(m.Tags, "auto-generated"))
+
+		e.metricsMu.Lock()
+		e.metrics.SkillsGenerated++
+		e.metricsMu.Unlock()
+
+		e.trace("skill", fmt.Sprintf("generated skill: %s (%s)", skill.Name, skill.ID))
+	}
+}
+
+func truncateStr(s string, n int) string {
+	if len(s) <= n {
+		return s
+	}
+	return s[:n-3] + "..."
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}

@@ -11,6 +11,12 @@ import (
 	"github.com/M523zappin/Curse-Core/internal/gateway"
 )
 
+type OllamaModel struct {
+	Name       string `json:"name"`
+	Size       int64  `json:"size"`
+	ModifiedAt string `json:"modified_at"`
+}
+
 type OllamaAdapter struct {
 	profile gateway.ModelProfile
 	client  *http.Client
@@ -26,6 +32,8 @@ func NewOllama(profile gateway.ModelProfile) *OllamaAdapter {
 func (a *OllamaAdapter) Name() string { return "ollama" }
 
 func (a *OllamaAdapter) ModelInfo() gateway.ModelProfile { return a.profile }
+
+func DefaultOllamaEndpoint() string { return "http://localhost:11434" }
 
 func (a *OllamaAdapter) Send(ctx context.Context, req *gateway.Prompt) (*gateway.Response, error) {
 	endpoint := a.profile.Endpoint
@@ -74,4 +82,40 @@ func buildPrompt(req *gateway.Prompt) string {
 		b.WriteString(fmt.Sprintf("%s: %s\n", m.Role, m.Content))
 	}
 	return b.String()
+}
+
+func DetectOllama(ctx context.Context) (string, bool) {
+	base := DefaultOllamaEndpoint()
+	req, err := http.NewRequestWithContext(ctx, "GET", base+"/api/tags", nil)
+	if err != nil {
+		return "", false
+	}
+	client := &http.Client{Timeout: 3 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", false
+	}
+	defer resp.Body.Close()
+	return base, resp.StatusCode == http.StatusOK
+}
+
+func ListOllamaModels(ctx context.Context) ([]OllamaModel, error) {
+	base := DefaultOllamaEndpoint()
+	req, err := http.NewRequestWithContext(ctx, "GET", base+"/api/tags", nil)
+	if err != nil {
+		return nil, fmt.Errorf("ollama list request: %w", err)
+	}
+	client := &http.Client{Timeout: 5 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("ollama list: %w", err)
+	}
+	defer resp.Body.Close()
+	var result struct {
+		Models []OllamaModel `json:"models"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("ollama decode tags: %w", err)
+	}
+	return result.Models, nil
 }

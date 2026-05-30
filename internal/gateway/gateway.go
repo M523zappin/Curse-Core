@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/M523zappin/Curse-Core/internal/agent"
 	"github.com/M523zappin/Curse-Core/internal/computer"
+	"github.com/M523zappin/Curse-Core/internal/engine"
 	"github.com/M523zappin/Curse-Core/internal/governance"
 	"github.com/M523zappin/Curse-Core/internal/healing"
 	"github.com/M523zappin/Curse-Core/internal/knowledge"
@@ -15,8 +17,12 @@ import (
 	"github.com/M523zappin/Curse-Core/internal/mission"
 	"github.com/M523zappin/Curse-Core/internal/persistence"
 	"github.com/M523zappin/Curse-Core/internal/sandbox"
+	"github.com/M523zappin/Curse-Core/internal/scheduler"
+	"github.com/M523zappin/Curse-Core/internal/session"
+	"github.com/M523zappin/Curse-Core/internal/skill"
 	"github.com/M523zappin/Curse-Core/internal/statemachine"
 	"github.com/M523zappin/Curse-Core/internal/sync"
+	"github.com/google/uuid"
 )
 
 type AdapterFactory func(ModelProfile) Adapter
@@ -48,6 +54,14 @@ type Gateway struct {
 	knowledge       *knowledge.Index
 	lspClient       *lsp.Client
 	lspConnected    bool
+
+	engine      *engine.Engine
+	skills      *skill.Store
+	sched       *scheduler.Scheduler
+	sessionSt   *session.Store
+	sessionID   string
+	startTime   time.Time
+	resumed     bool
 }
 
 func New(curseDir, configDir string) *Gateway {
@@ -57,6 +71,8 @@ func New(curseDir, configDir string) *Gateway {
 		curseDir:        curseDir,
 		configDir:       configDir,
 		adapterRegistry: make(map[string]AdapterFactory),
+		sessionID:       uuid.NewString(),
+		startTime:       time.Now(),
 	}
 	if cwd, err := os.Getwd(); err == nil {
 		gw.repoPath = cwd
@@ -107,6 +123,10 @@ func (g *Gateway) Init(ctx context.Context) error {
 	g.InitFleet()
 	g.InitHealer()
 	g.InitKnowledge()
+	g.InitSkills()
+	g.InitEngine()
+	g.InitScheduler()
+	g.InitSession()
 
 	if lspPath := lsp.FindLSServer("go"); lspPath != "" {
 		go g.InitLSP("go")
@@ -121,6 +141,14 @@ func (g *Gateway) Init(ctx context.Context) error {
 		g.registry = reg
 		if err := g.activateProfile(reg.Active); err != nil {
 			return fmt.Errorf("activate profile %s: %w", reg.Active, err)
+		}
+	} else {
+		reg := GenerateDefaultLocalRegistry(ctx)
+		if reg != nil && len(reg.Profiles) > 0 {
+			g.registry = reg
+			if err := g.activateProfile(reg.Active); err != nil {
+				g.registry = nil
+			}
 		}
 	}
 	constPath := filepath.Join(g.configDir, "..", "CONSTITUTION.md")
@@ -153,6 +181,200 @@ func (g *Gateway) Init(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+func (g *Gateway) InitSkills() {
+	if g.skills != nil {
+		return
+	}
+	skillsDir := filepath.Join(g.curseDir, "skills")
+	g.skills = skill.NewStore(skillsDir)
+	g.knowledge.Add(knowledge.KnowledgeEntry{
+		Type:  knowledge.TypeDecision,
+		Title: "Skill System initialized",
+		Body:  fmt.Sprintf("Skill store at %s with %d existing skills", skillsDir, g.skills.Count()),
+		Tags:  []string{"skill", "init"},
+	})
+}
+
+func (g *Gateway) InitEngine() {
+	if g.engine != nil {
+		return
+	}
+	g.engine = engine.New(
+		g.queue,
+		g.fleet,
+		g.skills,
+		g.knowledge,
+		g.healer,
+	)
+	g.engine.SetTraceHook(func(level, msg string) {
+		_ = level
+		_ = msg
+	})
+	g.engine.SetStatusHook(func(s engine.Status) {
+		_ = s
+	})
+}
+
+func (g *Gateway) InitScheduler() {
+	if g.sched != nil {
+		return
+	}
+	g.sched = scheduler.New()
+
+	g.sched.Add("health-check", 5*time.Minute, func(ctx context.Context) error {
+		issues := 0
+		if g.engine != nil && !g.engine.Running() {
+			issues++
+		}
+		if g.knowledge == nil {
+			issues++
+		}
+		if g.fleet == nil {
+			issues++
+		}
+		if issues > 0 {
+			return fmt.Errorf("%d subsystem(s) unhealthy", issues)
+		}
+		return nil
+	})
+
+	g.sched.Add("save-session", 30*time.Second, func(ctx context.Context) error {
+		return g.SaveSession()
+	})
+}
+
+func (g *Gateway) InitSession() {
+	if g.sessionSt != nil {
+		return
+	}
+	g.sessionSt = session.NewStore(g.curseDir)
+}
+
+func (g *Gateway) StartEngine(ctx context.Context) {
+	if g.engine != nil && !g.engine.Running() {
+		go g.engine.Run(ctx)
+	}
+}
+
+func (g *Gateway) StartScheduler(ctx context.Context) {
+	if g.sched != nil && !g.sched.Running() {
+		go g.sched.Run(ctx)
+	}
+}
+
+func (g *Gateway) SaveSession() error {
+	if g.sessionSt == nil {
+		return nil
+	}
+	state := session.State{
+		SessionID:      g.sessionID,
+		StartedAt:      g.startTime,
+		ActiveModel:    g.activeModel,
+		MachineState:   g.machine.State().String(),
+		MachineStep:    g.machine.Step(),
+		KnowledgeCount: g.knowledge.Count(),
+		SkillCount:     g.skills.Count(),
+		TaskCount:      g.fleet.TaskCount(),
+	}
+	return g.sessionSt.Save(state)
+}
+
+func (g *Gateway) RestoreSession() (*session.State, error) {
+	if g.sessionSt == nil {
+		return nil, fmt.Errorf("session store not initialized")
+	}
+	if !g.sessionSt.Exists() {
+		return nil, nil
+	}
+	state, err := g.sessionSt.Load()
+	if err != nil {
+		return nil, err
+	}
+	g.resumed = true
+	g.sessionID = state.SessionID
+	g.startTime = state.StartedAt
+	if state.ActiveModel != "" {
+		_ = g.activateProfile(state.ActiveModel)
+	}
+	return state, nil
+}
+
+func (g *Gateway) Engine() *engine.Engine {
+	return g.engine
+}
+
+func (g *Gateway) Skills() *skill.Store {
+	return g.skills
+}
+
+func (g *Gateway) Scheduler() *scheduler.Scheduler {
+	return g.sched
+}
+
+func (g *Gateway) SessionStore() *session.Store {
+	return g.sessionSt
+}
+
+func (g *Gateway) SessionID() string {
+	return g.sessionID
+}
+
+func (g *Gateway) StartTime() time.Time {
+	return g.startTime
+}
+
+func (g *Gateway) Resumed() bool {
+	return g.resumed
+}
+
+func (g *Gateway) Shutdown(ctx context.Context) error {
+	if g.engine != nil {
+		g.engine.Stop()
+	}
+	if g.sched != nil {
+		g.sched.Stop()
+	}
+	if g.computer != nil {
+		g.computer.StopBrowser()
+	}
+	if g.lspClient != nil {
+		g.lspClient.Shutdown()
+	}
+
+	g.finishSession(ctx)
+	g.SaveSession()
+
+	return nil
+}
+
+func (g *Gateway) finishSession(ctx context.Context) {
+	if g.knowledge == nil {
+		return
+	}
+	duration := time.Since(g.startTime)
+	taskCount := 0
+	if g.fleet != nil {
+		taskCount = g.fleet.TaskCount()
+	}
+	skillCount := 0
+	if g.skills != nil {
+		skillCount = g.skills.Count()
+	}
+	knCount := g.knowledge.Count()
+
+	summary := fmt.Sprintf(
+		"CURSE session %s completed.\nDuration: %s\nTasks: %d\nSkills: %d\nKnowledge entries: %d\nModel: %s",
+		g.sessionID, knowledge.FormatDuration(duration), taskCount, skillCount, knCount, g.activeModel,
+	)
+	g.knowledge.RecordSession(g.sessionID, knowledge.SessionSummary{
+		SessionID: g.sessionID,
+		StartTime: g.startTime,
+		Duration:  duration,
+		TaskCount: taskCount,
+		Summary:   summary,
+	})
 }
 
 func (g *Gateway) activateProfile(name string) error {
