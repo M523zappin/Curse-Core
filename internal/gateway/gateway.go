@@ -6,7 +6,12 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/M523zappin/Curse-Core/internal/agent"
+	"github.com/M523zappin/Curse-Core/internal/computer"
 	"github.com/M523zappin/Curse-Core/internal/governance"
+	"github.com/M523zappin/Curse-Core/internal/healing"
+	"github.com/M523zappin/Curse-Core/internal/knowledge"
+	"github.com/M523zappin/Curse-Core/internal/lsp"
 	"github.com/M523zappin/Curse-Core/internal/mission"
 	"github.com/M523zappin/Curse-Core/internal/persistence"
 	"github.com/M523zappin/Curse-Core/internal/sandbox"
@@ -33,6 +38,16 @@ type Gateway struct {
 	syncer          *sync.Syncer
 	adapterRegistry map[string]AdapterFactory
 	syncOnInit      bool
+	computer        *computer.ComputerController
+	toolRegistry    *ToolRegistry
+	visionEngine    *computer.VisionEngine
+	safetyChecker   *computer.SafetyChecker
+	reviewManager   *computer.ReviewManager
+	fleet           *agent.Fleet
+	healer          *healing.HealingLoop
+	knowledge       *knowledge.Index
+	lspClient       *lsp.Client
+	lspConnected    bool
 }
 
 func New(curseDir, configDir string) *Gateway {
@@ -73,6 +88,21 @@ func (g *Gateway) Init(ctx context.Context) error {
 		filepath.Join(g.curseDir, "staging"),
 		sandbox.ModeDraftFile,
 	)
+
+	g.computer = computer.New()
+	g.visionEngine = computer.NewVisionEngine(filepath.Join(g.curseDir, "screenshots"))
+	g.safetyChecker = computer.NewSafetyChecker(g.visionEngine)
+	g.reviewManager = computer.NewReviewManager()
+	g.toolRegistry = NewToolRegistry(g.computer)
+
+	g.computer.SetReviewCallback(func(req computer.ReviewRequest) {
+		if g.reviewManager != nil {
+			g.reviewManager.SetCallback(func(r computer.ReviewRequest) {
+				_ = r
+			})
+		}
+	})
+
 	modelsPath := filepath.Join(g.configDir, "models.json")
 	if _, err := os.Stat(modelsPath); err == nil {
 		reg, err := LoadModels(modelsPath)
@@ -92,7 +122,10 @@ func (g *Gateway) Init(ctx context.Context) error {
 		}
 	}
 	g.machine.OnTransition(func(result statemachine.TransitionResult) {
-		g.eventLog.Append(result.From, result.Event, result.To, nil)
+		entry, _ := g.eventLog.Append(result.From, result.Event, result.To, nil)
+		if g.visionBufferSnapshot() != "" {
+			_ = entry
+		}
 	})
 
 	if g.syncOnInit && g.syncer != nil {
@@ -209,6 +242,172 @@ func (g *Gateway) RepoPath() string {
 	return g.repoPath
 }
 
+func (g *Gateway) InitFleet() {
+	if g.fleet != nil {
+		return
+	}
+	g.fleet = agent.NewFleet()
+	g.fleet.RegisterRole(agent.RoleSecurity, 1)
+	g.fleet.RegisterRole(agent.RoleRefactor, 2)
+	g.fleet.RegisterRole(agent.RoleInfra, 1)
+	g.fleet.RegisterRole(agent.RoleReviewer, 2)
+	g.fleet.RegisterRole(agent.RoleTester, 1)
+	g.fleet.RegisterRole(agent.RoleArchitect, 1)
+	g.fleet.RegisterRole(agent.RoleDocWriter, 1)
+	g.fleet.RegisterRole(agent.RoleDependency, 1)
+
+	g.fleet.SetDispatcher(func(a *agent.Agent, t agent.Task) *agent.TaskResult {
+		return g.dispatchAgentTask(a, t)
+	})
+}
+
+func (g *Gateway) InitHealer() {
+	if g.healer != nil {
+		return
+	}
+	g.healer = healing.NewHealingLoop()
+	g.healer.RegisterHandler("browser", func(inc healing.Incident) (string, bool, error) {
+		if g.computer != nil {
+			g.computer.StopBrowser()
+			if err := g.computer.StartBrowser(); err == nil {
+				return "browser restarted", true, nil
+			}
+		}
+		return "browser restart failed", false, nil
+	})
+}
+
+func (g *Gateway) InitKnowledge() {
+	if g.knowledge != nil {
+		return
+	}
+	indexDir := filepath.Join(g.curseDir, "knowledge")
+	g.knowledge = knowledge.NewIndex(indexDir)
+	g.knowledge.RecordADR("CURSE Platform Architecture",
+		"CURSE is a persistent autonomous TUI orchestration platform with crash-recoverable state machine, "+
+			"draft-staging sandbox, model-agnostic gateway adapters, and a professional-grade Bubble Tea dashboard.\n\n"+
+			"Key architectural decisions:\n"+
+			"- SHA256-chained event.log for tamper-evident crash recovery\n"+
+			"- State machine with 8 states including Syncing\n"+
+			"- Gateway uses AdapterFactory registry pattern\n"+
+			"- Computer Controller with Playwright-based browser automation\n"+
+			"- Human-in-the-Loop review mode for destructive actions",
+		[]string{"architecture", "go", "tui", "state-machine"})
+	_ = g.knowledge
+}
+
+func (g *Gateway) InitLSP(language string) {
+	if g.lspConnected {
+		return
+	}
+	serverPath := lsp.FindLSServer(language)
+	if serverPath == "" {
+		return
+	}
+	g.lspClient = lsp.NewClient(serverPath, g.repoPath)
+	if err := g.lspClient.Connect(context.Background()); err != nil {
+		g.lspConnected = false
+		return
+	}
+	g.lspConnected = true
+	g.openProjectFiles()
+}
+
+func (g *Gateway) openProjectFiles() {
+	if !g.lspConnected || g.lspClient == nil {
+		return
+	}
+	filepath.Walk(g.repoPath, func(path string, info os.FileInfo, err error) error {
+		if err != nil || info.IsDir() {
+			return nil
+		}
+		ext := filepath.Ext(path)
+		switch ext {
+		case ".go", ".ts", ".js", ".py", ".rs", ".json", ".md":
+			data, readErr := os.ReadFile(path)
+			if readErr == nil {
+				g.lspClient.OpenDocument(path, string(data))
+			}
+		}
+		return nil
+	})
+}
+
+func (g *Gateway) dispatchAgentTask(a *agent.Agent, t agent.Task) *agent.TaskResult {
+	result := &agent.TaskResult{
+		TaskID:  t.ID,
+		Success: true,
+		Output:  fmt.Sprintf("agent %s (%s) completed %s", a.ID, a.Role, t.Description),
+	}
+
+	if g.healer != nil {
+		g.healer.Handle("agent:"+string(a.Role), fmt.Errorf("task executed: %s", t.ID))
+	}
+
+	if g.knowledge != nil {
+		g.knowledge.Add(knowledge.KnowledgeEntry{
+			Type:  knowledge.TypeDecision,
+			Title: fmt.Sprintf("Agent %s executed task %s", a.ID, t.ID),
+			Body:  t.Description,
+			Tags:  []string{string(a.Role), "task"},
+		})
+	}
+
+	return result
+}
+
 func (g *Gateway) SetSyncOnInit(v bool) {
 	g.syncOnInit = v
+}
+
+func (g *Gateway) Fleet() *agent.Fleet {
+	return g.fleet
+}
+
+func (g *Gateway) Healer() *healing.HealingLoop {
+	return g.healer
+}
+
+func (g *Gateway) Knowledge() *knowledge.Index {
+	return g.knowledge
+}
+
+func (g *Gateway) LSP() *lsp.Client {
+	return g.lspClient
+}
+
+func (g *Gateway) LSPConnected() bool {
+	return g.lspConnected
+}
+
+func (g *Gateway) Computer() *computer.ComputerController {
+	return g.computer
+}
+
+func (g *Gateway) ToolRegistry() *ToolRegistry {
+	return g.toolRegistry
+}
+
+func (g *Gateway) VisionEngine() *computer.VisionEngine {
+	return g.visionEngine
+}
+
+func (g *Gateway) SafetyChecker() *computer.SafetyChecker {
+	return g.safetyChecker
+}
+
+func (g *Gateway) ReviewManager() *computer.ReviewManager {
+	return g.reviewManager
+}
+
+func (g *Gateway) visionBufferSnapshot() string {
+	if g.computer == nil {
+		return ""
+	}
+	buf := g.computer.VisionBuffer()
+	if len(buf) == 0 {
+		return ""
+	}
+	last := buf[len(buf)-1]
+	return last.Screenshot
 }

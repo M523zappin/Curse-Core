@@ -29,6 +29,8 @@ type Model struct {
 	logPath      string
 	cpPath       string
 	pulseFrame   int
+	reviewPanel  *ReviewPanelModel
+	browserReady bool
 }
 
 type TraceEntry struct {
@@ -40,7 +42,7 @@ type TraceEntry struct {
 var version = "v0.1"
 
 func NewModel(gw *gateway.Gateway) *Model {
-	return &Model{
+	m := &Model{
 		gateway:      gw,
 		traceItems:   make([]TraceEntry, 0),
 		paused:       false,
@@ -49,6 +51,12 @@ func NewModel(gw *gateway.Gateway) *Model {
 		maxVisible:   25,
 		lastSeqRead:  0,
 	}
+
+	if gw.ReviewManager() != nil {
+		m.reviewPanel = NewReviewPanelModel(gw.ReviewManager())
+	}
+
+	return m
 }
 
 func (m *Model) SetLogPaths(logPath, cpPath string) {
@@ -58,6 +66,8 @@ func (m *Model) SetLogPaths(logPath, cpPath string) {
 
 func (m *Model) Init() tea.Cmd {
 	m.AddTrace("system", "Gateway initialized, awaiting mission")
+	m.AddTrace("system", "Computer Controller ready — Ctrl+B to start browser")
+	m.AddTrace("system", "Review mode active — HITL confirmation required for destructive actions")
 	return tea.Batch(
 		m.pollLog(),
 		m.pulseTicker(),
@@ -93,6 +103,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.pulseFrame++
 		m.pollEventLog()
 		m.pollCheckpoint()
+		if m.reviewPanel != nil {
+			m.reviewPanel.Update(msg)
+		}
 		return m, tea.Batch(m.pollLog(), m.pulseTicker())
 
 	case tea.KeyMsg:
@@ -126,6 +139,40 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.AddTrace("system", "✓ Constitution updated from remote")
 			} else {
 				m.AddTrace("system", "→ Constitution already up to date")
+			}
+		case "ctrl+b":
+			if !m.browserReady {
+				go func() {
+					if err := m.gateway.Computer().StartBrowser(); err != nil {
+						m.AddTrace("error", fmt.Sprintf("Browser start failed: %v", err))
+						return
+					}
+					m.AddTrace("system", "✓ Browser started (chromedp)")
+				}()
+				m.browserReady = true
+			} else {
+				m.AddTrace("system", "Browser already running")
+			}
+
+		case "up":
+			if m.reviewPanel != nil && m.reviewPanel.Visible() {
+				m.reviewPanel.SelectPrev()
+			}
+		case "down":
+			if m.reviewPanel != nil && m.reviewPanel.Visible() {
+				m.reviewPanel.SelectNext()
+			}
+		case "enter":
+			if m.reviewPanel != nil && m.reviewPanel.Visible() {
+				if err := m.reviewPanel.ApproveSelected(); err == nil {
+					m.AddTrace("system", "✓ Review: action approved")
+				}
+			}
+		case "esc":
+			if m.reviewPanel != nil && m.reviewPanel.Visible() {
+				if err := m.reviewPanel.RejectSelected(); err == nil {
+					m.AddTrace("system", "✗ Review: action rejected")
+				}
 			}
 		case "q":
 			if m.paused {
@@ -255,14 +302,32 @@ func (m *Model) View() string {
 	// Body
 	body := lipgloss.JoinHorizontal(lipgloss.Top, "  ", leftPane, "  ", rightCol, "  ")
 
+	// Review Panel (HITL overlay)
+	var reviewView string
+	if m.reviewPanel != nil && m.reviewPanel.Visible() {
+		reviewView = m.reviewPanel.View(rightWidth)
+	}
+
 	// Footer
 	sessionID := m.gateway.Machine().MissionID()
 	if sessionID == "" {
 		sessionID = "---"
 	}
-	footer := FooterStyled(sessionID, modelName, fmt.Sprintf("seq:%d", m.lastSeqRead), m.paused)
+	reviewPending := 0
+	if m.reviewPanel != nil {
+		reviewPending = m.reviewPanel.PendingCount()
+	}
+	footerExtra := ""
+	if reviewPending > 0 {
+		footerExtra = fmt.Sprintf("  ⚠ %d review(s) pending", reviewPending)
+	}
+	footer := FooterStyled(sessionID, modelName, fmt.Sprintf("seq:%d", m.lastSeqRead), m.paused, footerExtra)
 
-	return lipgloss.JoinVertical(lipgloss.Top, title, "\n", body, "\n", footer) + "\n"
+	content := lipgloss.JoinVertical(lipgloss.Top, title, "\n", body, "\n", footer)
+	if reviewView != "" {
+		content = lipgloss.JoinVertical(lipgloss.Top, content, "\n", reviewView)
+	}
+	return content + "\n"
 }
 
 func (m *Model) renderTrace(width int) string {

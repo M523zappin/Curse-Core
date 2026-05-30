@@ -187,17 +187,20 @@ func StatusLineStyled(label, value string, dot DotStatus, pulse bool) string {
 
 // ── Footer ───────────────────────────────────────────────────────
 
-func FooterStyled(sessionID, model, cpInfo string, paused bool) string {
+func FooterStyled(sessionID, model, cpInfo string, paused bool, extra ...string) string {
 	pauseLabel := "Running"
 	if paused {
 		pauseLabel = "● Paused"
 	}
 	left := lipgloss.NewStyle().Foreground(ColorFgSubtle).Render(
-		fmt.Sprintf("  Ctrl+P pause  Ctrl+M model  Ctrl+S quit  "),
+		fmt.Sprintf("  Ctrl+P pause  Ctrl+B browser  Ctrl+Y sync  Ctrl+S quit  "),
 	)
 	right := lipgloss.NewStyle().Foreground(ColorFgInactive).Render(
 		fmt.Sprintf("  %s  │  %s  │  %s  ", pauseLabel, sessionID, cpInfo),
 	)
+	if len(extra) > 0 && extra[0] != "" {
+		right += lipgloss.NewStyle().Foreground(ColorWarning).Render(extra[0])
+	}
 	sep := lipgloss.NewStyle().Foreground(ColorBorder).Render("│")
 	return left + sep + right
 }

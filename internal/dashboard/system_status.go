@@ -80,6 +80,27 @@ func (m *SystemStatusModel) View(width int) string {
 		}
 	}
 
+	// Computer Controller status
+	comp := m.gateway.Computer()
+	if comp != nil {
+		buf := comp.VisionBuffer()
+		bufSize := len(buf)
+		bufDot := DotSecure
+		if bufSize == 0 {
+			bufDot = DotIdle
+		}
+		lines = append(lines, StatusLineStyled("Vision", fmt.Sprintf("%d frames", bufSize), bufDot, false))
+		reviewMgr := m.gateway.ReviewManager()
+		if reviewMgr != nil {
+			pending := reviewMgr.PendingCount()
+			reviewDot := DotProcessing
+			if pending == 0 {
+				reviewDot = DotSecure
+			}
+			lines = append(lines, StatusLineStyled("Reviews", fmt.Sprintf("%d pending", pending), reviewDot, pending > 0))
+		}
+	}
+
 	// SHA256 chain status
 	chainDot := DotSecure
 	if state == statemachine.StateError {
