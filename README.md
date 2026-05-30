@@ -17,7 +17,7 @@
 </p>
 
 <p align="center">
-  <img src="assets/crona-portrait.jpg" alt="Author" width="100" style="border-radius: 50%;">
+  <img src="assets/author-portrait.jpg" alt="Author" width="100" style="border-radius: 50%;">
 </p>
 
 <p align="center">
