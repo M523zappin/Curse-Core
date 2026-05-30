@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+# CURSE — Autonomous Terminal Entity launcher
+# Finds and runs the CURSE binary from canonical locations.
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Priority:
+#   1. ~/.local/bin/curse (installed by install.sh)
+#   2. Same dir as this script: ./curse-dashboard or ./releases/curse-*
+#   3. PATH
+
+if [ -x "${HOME}/.local/bin/curse" ]; then
+  exec "${HOME}/.local/bin/curse" "$@"
+fi
+
+for candidate in \
+  "${SCRIPT_DIR}/curse-dashboard" \
+  "${SCRIPT_DIR}/releases/curse-dashboard" \
+  "${SCRIPT_DIR}/releases/curse-$(uname -s | tr A-Z a-z)-$(uname -m)"; do
+  if [ -f "$candidate" ] && [ -x "$candidate" ]; then
+    exec "$candidate" "$@"
+  fi
+done
+
+if command -v curse &>/dev/null; then
+  exec curse "$@"
+fi
+
+echo "CURSE binary not found. Install it first:" >&2
+echo "  curl -fsSL https://raw.githubusercontent.com/M523zappin/Curse-Core/master/install.sh | bash" >&2
+exit 1

@@ -1,15 +1,13 @@
 @echo off
 title CURSE — Cognitive Unified Runtime System Entity
-cd /d "%~dp0"
 
-where /q curse.exe 2>nul
-if %ERRORLEVEL% EQU 0 (
-    curse.exe %*
-    exit /b
-)
+:: Find the curse binary in priority order:
+::   1. Same directory as this script
+::   2. USERPROFILE\.local\bin (install script target)
+::   3. PATH
 
-if exist "releases\curse-dashboard.exe" (
-    start /b /wait releases\curse-dashboard.exe
-) else (
-    start /b /wait curse-dashboard.exe
-)
+set "CURSE_EXE=%~dp0curse.exe"
+if not exist "%CURSE_EXE%" set "CURSE_EXE=%USERPROFILE%\.local\bin\curse.exe"
+if not exist "%CURSE_EXE%" set "CURSE_EXE=curse.exe"
+
+start /b /wait "" "%CURSE_EXE%" %*

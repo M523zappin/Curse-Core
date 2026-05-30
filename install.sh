@@ -72,13 +72,28 @@ fi
 mkdir -p "${BIN_DIR}"
 
 install_via_prebuilt() {
-  local binary="${CURSE_HOME}/releases/curse-${OS}-${ARCH}"
-  if [ -f "$binary" ]; then
-    cp "$binary" "${BIN_DIR}/curse"
-    chmod +x "${BIN_DIR}/curse"
-    echo -e "  ${GREEN}✔${NC} Pre-built binary deployed"
-    return 0
-  fi
+  local candidates=(
+    "${CURSE_HOME}/curse"
+    "${CURSE_HOME}/releases/curse-${OS}-${ARCH}"
+    "${CURSE_HOME}/releases/curse-dashboard"
+  )
+  for binary in "${candidates[@]}"; do
+    if [ -f "$binary" ] && [ -x "$binary" ]; then
+      cp "$binary" "${BIN_DIR}/curse"
+      chmod +x "${BIN_DIR}/curse"
+      echo -e "  ${GREEN}✔${NC} Pre-built binary deployed ($binary)"
+      return 0
+    fi
+  done
+  # Try without executable bit (Windows releases)
+  for binary in "${candidates[@]}"; do
+    if [ -f "$binary" ]; then
+      cp "$binary" "${BIN_DIR}/curse"
+      chmod +x "${BIN_DIR}/curse"
+      echo -e "  ${GREEN}✔${NC} Pre-built binary deployed ($binary)"
+      return 0
+    fi
+  done
   return 1
 }
 
@@ -98,12 +113,16 @@ install_via_go() {
   fi
   echo -e "  ${CYAN}•${NC} Building from source..."
   cd "${CURSE_HOME}"
-  CGO_ENABLED=0 go build -o "${BIN_DIR}/curse" ./cmd/dashboard/
-  chmod +x "${BIN_DIR}/curse"
-  echo -e "  ${GREEN}✔${NC} Binary built from source"
+  CGO_ENABLED=0 go build -o "${BIN_DIR}/curse" ./cmd/dashboard/ 2>&1
+  chmod +x "${BIN_DIR}/curse" 2>/dev/null || true
+  if [ -x "${BIN_DIR}/curse" ]; then
+    echo -e "  ${GREEN}✔${NC} Binary built from source"
+  else
+    echo -e "  ${RED}Build failed. Check Go installation.${NC}"
+    exit 1
+  fi
 }
 
-# Try pre-built first, then Go build
 if ! install_via_prebuilt; then
   install_via_go
 fi

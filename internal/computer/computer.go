@@ -3,6 +3,7 @@ package computer
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 )
@@ -333,9 +334,9 @@ func (cc *ComputerController) classifyTerminal(command string) SafetyLevel {
 		":(){ :|:& };:", "git push --force", "gh repo delete",
 		"chmod -R 777", "rmdir /s", "del /f /s"}
 
-	upper := command
+	lower := strings.ToLower(command)
 	for _, d := range destructive {
-		if contains(upper, d) {
+		if strings.Contains(lower, d) {
 			return SafetyDestructive
 		}
 	}
@@ -368,15 +369,5 @@ func (cc *ComputerController) requestReview(action *UIAction) (bool, error) {
 }
 
 func contains(s, substr string) bool {
-	return len(s) >= len(substr) && stringContains(s, substr)
-}
-
-func stringContains(s, substr string) bool {
-	lower := s
-	for i := 0; i <= len(lower)-len(substr); i++ {
-		if lower[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
+	return strings.Contains(s, substr)
 }

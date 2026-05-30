@@ -53,7 +53,11 @@ func (s *Store) Add(skill Skill) string {
 		skill.CreatedAt = skill.UpdatedAt
 	}
 	s.skills[skill.ID] = &skill
-	s.persist(&skill)
+	if err := s.persist(&skill); err != nil {
+		s.skills[skill.ID] = nil
+		delete(s.skills, skill.ID)
+		return ""
+	}
 	return skill.ID
 }
 
@@ -184,14 +188,31 @@ func (s *Store) Get(id string) *Skill {
 	return s.skills[id]
 }
 
-func (s *Store) persist(skill *Skill) {
+func (s *Store) SaveDoc(skillID string, doc string) error {
 	if s.skillsDir == "" {
-		return
+		return nil
 	}
-	os.MkdirAll(s.skillsDir, 0755)
+	dir := filepath.Join(s.skillsDir, "docs")
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return err
+	}
+	path := filepath.Join(dir, fmt.Sprintf("%s.md", skillID))
+	return os.WriteFile(path, []byte(doc), 0644)
+}
+
+func (s *Store) persist(skill *Skill) error {
+	if s.skillsDir == "" {
+		return nil
+	}
+	if err := os.MkdirAll(s.skillsDir, 0755); err != nil {
+		return err
+	}
 	path := filepath.Join(s.skillsDir, fmt.Sprintf("%s.json", skill.ID))
-	data, _ := json.MarshalIndent(skill, "", "  ")
-	os.WriteFile(path, data, 0644)
+	data, err := json.MarshalIndent(skill, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, data, 0644)
 }
 
 func (s *Store) Load() {

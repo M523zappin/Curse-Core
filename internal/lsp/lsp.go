@@ -71,9 +71,18 @@ func (c *Client) Connect(ctx context.Context) error {
 	defer c.mu.Unlock()
 
 	cmd := exec.CommandContext(ctx, c.serverPath)
-	stdin, _ := cmd.StdinPipe()
-	stdout, _ := cmd.StdoutPipe()
-	stderr, _ := cmd.StderrPipe()
+	stdin, err := cmd.StdinPipe()
+	if err != nil {
+		return fmt.Errorf("stdin pipe: %w", err)
+	}
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		return fmt.Errorf("stdout pipe: %w", err)
+	}
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		return fmt.Errorf("stderr pipe: %w", err)
+	}
 
 	c.cmd = cmd
 	c.stdin = bufio.NewWriter(stdin)
@@ -90,6 +99,14 @@ func (c *Client) Connect(ctx context.Context) error {
 		for c.stderr.Scan() {
 			_ = c.stderr.Text()
 		}
+	}()
+	go func() {
+		<-ctx.Done()
+		c.mu.Lock()
+		if c.cmd != nil && c.cmd.Process != nil {
+			c.cmd.Process.Kill()
+		}
+		c.mu.Unlock()
 	}()
 
 	if err := c.initialize(); err != nil {
@@ -327,14 +344,15 @@ func (c *Client) sendNotification(method string, params interface{}) error {
 }
 
 func (c *Client) readResponse(id int) (map[string]interface{}, error) {
-	timeout := time.After(30 * time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
 	done := make(chan map[string]interface{}, 1)
 	errs := make(chan error, 1)
 
 	go func() {
 		for c.stdout.Scan() {
 			line := c.stdout.Text()
-
 			if strings.HasPrefix(line, "Content-Length:") || line == "" {
 				continue
 			}
@@ -360,6 +378,11 @@ func (c *Client) readResponse(id int) (map[string]interface{}, error) {
 					return
 				}
 			}
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
 		}
 	}()
 
@@ -368,7 +391,7 @@ func (c *Client) readResponse(id int) (map[string]interface{}, error) {
 		return result, nil
 	case err := <-errs:
 		return nil, err
-	case <-timeout:
+	case <-ctx.Done():
 		return nil, fmt.Errorf("LSP response timeout")
 	}
 }

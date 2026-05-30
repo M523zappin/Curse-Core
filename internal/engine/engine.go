@@ -292,8 +292,6 @@ func (e *Engine) collectResults(missionID string) (results []agent.TaskResult) {
 	ticker := time.NewTicker(50 * time.Millisecond)
 	defer ticker.Stop()
 
-	e.dispatchFleet()
-
 	for {
 		select {
 		case <-timeout:
@@ -439,37 +437,107 @@ func (e *Engine) learnFromMission(m *mission.Mission, results []agent.TaskResult
 	})
 
 	if successes == len(results) && len(results) > 0 {
-		words := strings.Fields(m.Task)
-		skillName := "Auto-"
-		if len(words) >= 1 {
-			skillName += words[0]
-			if len(words) >= 2 {
-				skillName += "-" + words[1]
-				if len(words) >= 3 {
-					skillName += "-" + words[2]
-				}
-			}
-		} else {
-			skillName += "task"
-		}
-		pattern := m.Task
-		if len(pattern) > 80 {
-			pattern = pattern[:80]
-		}
+		skillName := e.deriveSkillName(m.Task)
+		steps := e.deriveSteps(m, results)
+		tags := append(m.Tags, "auto-generated", "skill")
 
-		skill := e.skills.Generate(skillName, m.Task, pattern, []string{
-			fmt.Sprintf("Analyze: %s", m.Task),
-			"Execute with fleet agents",
-			"Review results",
-			"Record knowledge",
-		}, append(m.Tags, "auto-generated"))
+		skill := e.skills.Generate(skillName, m.Task, m.Task, steps, tags)
+
+		if e.skills != nil {
+			doc := e.generateSkillDoc(skill, m, results)
+			e.skills.SaveDoc(skill.ID, doc)
+		}
 
 		e.metricsMu.Lock()
 		e.metrics.SkillsGenerated++
 		e.metricsMu.Unlock()
 
-		e.trace("skill", fmt.Sprintf("generated skill: %s (%s)", skill.Name, skill.ID))
+		e.trace("skill", fmt.Sprintf("generated skill: %s (%s) — %d steps, usable for similar tasks", skill.Name, skill.ID, len(steps)))
 	}
+}
+
+func (e *Engine) deriveSkillName(task string) string {
+	words := strings.Fields(task)
+	var clean []string
+	for _, w := range words {
+		w = strings.Trim(w, ".,!?;:\"'()[]{}")
+		if len(w) > 2 || w == "go" || w == "do" || w == "be" || w == "to" || w == "in" || w == "on" || w == "at" || w == "by" || w == "of" || w == "or" || w == "as" {
+			clean = append(clean, w)
+		}
+	}
+	if len(clean) > 5 {
+		clean = clean[:5]
+	}
+	if len(clean) == 0 {
+		return "Auto-task"
+	}
+	prefix := "Skill-"
+	for i, w := range clean {
+		if len(w) > 1 {
+			clean[i] = strings.ToUpper(w[:1]) + w[1:]
+		}
+	}
+	return prefix + strings.Join(clean, "-")
+}
+
+func (e *Engine) deriveSteps(m *mission.Mission, results []agent.TaskResult) []string {
+	steps := []string{
+		fmt.Sprintf("Analyze: %s", m.Task),
+		"Decompose into sub-tasks by role",
+		"Dispatch to specialized fleet agents",
+		"Collect and verify results",
+		"Record knowledge from outcomes",
+	}
+	if len(results) > 0 {
+		successMsg := "Verify all tasks pass review"
+		for _, r := range results {
+			if !r.Success && r.Error != "" {
+				successMsg = fmt.Sprintf("Handle errors: %s", truncateStr(r.Error, 60))
+				break
+			}
+		}
+		steps = append(steps, successMsg)
+	}
+	return steps
+}
+
+func (e *Engine) generateSkillDoc(skill *skill.Skill, m *mission.Mission, results []agent.TaskResult) string {
+	var b strings.Builder
+	b.WriteString(fmt.Sprintf("# %s\n\n", skill.Name))
+	b.WriteString(fmt.Sprintf("> **Auto-generated skill** from mission: _%s_\n\n", m.Task))
+	b.WriteString("## Description\n\n")
+	b.WriteString(fmt.Sprintf("This skill encapsulates the procedure for: %s\n\n", m.Task))
+	b.WriteString("## Tags\n\n")
+	for _, tag := range skill.Tags {
+		b.WriteString(fmt.Sprintf("- `%s`\n", tag))
+	}
+	b.WriteString("\n## Steps\n\n")
+	for i, step := range skill.Steps {
+		b.WriteString(fmt.Sprintf("%d. %s\n", i+1, step))
+	}
+	b.WriteString("\n## Pattern\n\n")
+	b.WriteString("```\n" + skill.Pattern + "\n```\n\n")
+	b.WriteString("## Usage\n\n")
+	b.WriteString("Apply this skill when the task matches the pattern above. ")
+	b.WriteString("The fleet dispatcher will automatically match this skill to similar tasks.\n\n")
+	b.WriteString("## Performance\n\n")
+
+	successes := 0
+	for _, r := range results {
+		if r.Success {
+			successes++
+		}
+	}
+	total := len(results)
+	if total > 0 {
+		pct := float64(successes) / float64(total) * 100
+		b.WriteString(fmt.Sprintf("- Success rate: **%.0f%%** (%d/%d)\n", pct, successes, total))
+	}
+	b.WriteString(fmt.Sprintf("- Total executions: **1** (freshly created)\n"))
+	b.WriteString(fmt.Sprintf("- Confidence: **learning** (needs more executions)\n\n"))
+	b.WriteString("---\n")
+	b.WriteString(fmt.Sprintf("*Created by CURSE Auto-Skill System at %s*\n", time.Now().UTC().Format(time.RFC3339)))
+	return b.String()
 }
 
 func truncateStr(s string, n int) string {

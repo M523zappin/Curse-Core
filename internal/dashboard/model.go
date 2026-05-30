@@ -791,7 +791,7 @@ func (m *Model) View() string {
 	}
 	footer := FooterStyled(sessionID, modelName, fmt.Sprintf("seq:%d", m.lastSeqRead), m.paused, f, footerExtra)
 
-	// ── Live Status Bar (Hermes-inspired) ──
+	// ── Live Status Bar ──
 	profile, ok := m.gateway.Registry().ActiveProfile()
 	ctxPct := 0
 	if ok && profile.ContextWindow > 0 {

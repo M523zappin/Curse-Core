@@ -65,16 +65,26 @@ Write-Host "  Ctrl+P  Pause/Resume     Ctrl+Y  Sync Constitution" -ForegroundCol
 Write-Host "  Ctrl+M  Cycle model      Ctrl+S  Shutdown" -ForegroundColor DarkGray
 Write-Host ""
 
-$exe = Join-Path $PSScriptRoot "releases\curse-dashboard.exe"
-if (-not (Test-Path $exe)) {
-    $exe = Join-Path $PSScriptRoot "curse-dashboard.exe"
+# Find the curse binary in priority order
+$exe = $null
+$candidates = @(
+    Join-Path $PSScriptRoot "curse.exe"
+    Join-Path $PSScriptRoot "releases\curse-dashboard.exe"
+    Join-Path $PSScriptRoot "curse-dashboard.exe"
+    Join-Path "$env:USERPROFILE\.local\bin" "curse.exe"
+)
+foreach ($c in $candidates) {
+    if (Test-Path $c) { $exe = $c; break }
 }
-if (-not (Test-Path $exe)) {
+
+if (-not $exe) {
     Write-Host "Building dashboard..." -ForegroundColor Yellow
-    $env:GOROOT = "C:\Go"
-    $env:Path = "C:\Go\bin;$env:Path"
-    $exe = Join-Path $PSScriptRoot "releases\curse-dashboard.exe"
-    & "C:\Go\bin\go.exe" build -o $exe ./cmd/dashboard/
+    $exe = Join-Path $PSScriptRoot "curse.exe"
+    & "go.exe" build -o $exe ./cmd/dashboard/ 2>&1
+    if (-not (Test-Path $exe)) {
+        Write-Host "Build failed. Install Go or download a release." -ForegroundColor Red
+        exit 1
+    }
 }
 
 & $exe

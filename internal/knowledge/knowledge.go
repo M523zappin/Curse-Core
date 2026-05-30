@@ -87,7 +87,13 @@ func (idx *Index) Add(entry KnowledgeEntry) string {
 	}
 	idx.byType[entry.Type] = append(idx.byType[entry.Type], pos)
 
-	idx.persist(entry)
+	if err := idx.persist(entry); err != nil {
+		idx.entries = idx.entries[:pos]
+		for _, tag := range entry.Tags {
+			idx.byTag[tag] = idx.byTag[tag][:len(idx.byTag[tag])-1]
+		}
+		idx.byType[entry.Type] = idx.byType[entry.Type][:len(idx.byType[entry.Type])-1]
+	}
 	return entry.ID
 }
 
@@ -203,14 +209,19 @@ func (idx *Index) Count() int {
 	return len(idx.entries)
 }
 
-func (idx *Index) persist(entry KnowledgeEntry) {
+func (idx *Index) persist(entry KnowledgeEntry) error {
 	if idx.indexDir == "" {
-		return
+		return nil
 	}
-	os.MkdirAll(idx.indexDir, 0755)
+	if err := os.MkdirAll(idx.indexDir, 0755); err != nil {
+		return err
+	}
 	path := filepath.Join(idx.indexDir, fmt.Sprintf("%s.json", entry.ID))
-	data, _ := json.MarshalIndent(entry, "", "  ")
-	os.WriteFile(path, data, 0644)
+	data, err := json.MarshalIndent(entry, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, data, 0644)
 }
 
 func (idx *Index) Load() {

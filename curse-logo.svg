@@ -1,0 +1,96 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 280" width="800" height="280">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#08080f"/>
+      <stop offset="100%" style="stop-color:#0a0a18"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#ff4422"/>
+      <stop offset="50%" style="stop-color:#ff6633"/>
+      <stop offset="100%" style="stop-color:#ff8833"/>
+    </linearGradient>
+    <linearGradient id="eye" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#ff4422"/>
+      <stop offset="100%" style="stop-color:#ff6600"/>
+    </linearGradient>
+    <linearGradient id="glow" x1="50%" y1="100%" x2="50%" y2="0%">
+      <stop offset="0%" style="stop-color:#ff4422;stop-opacity:0.3"/>
+      <stop offset="100%" style="stop-color:#ff4422;stop-opacity:0"/>
+    </linearGradient>
+    <filter id="neon">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="glowSub">
+      <feGaussianBlur stdDeviation="2" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="800" height="280" fill="url(#bg)" rx="12"/>
+
+  <!-- Border glow line -->
+  <rect x="10" y="10" width="780" height="260" rx="10" fill="none" stroke="#ff4422" stroke-width="1" stroke-opacity="0.15"/>
+  <rect x="12" y="12" width="776" height="256" rx="9" fill="none" stroke="#ff4422" stroke-width="0.5" stroke-opacity="0.08"/>
+
+  <!-- Glow under text -->
+  <rect x="100" y="210" width="600" height="40" rx="20" fill="url(#glow)" opacity="0.4"/>
+
+  <!-- C U R S E filled-block letters -->
+  <!-- C -->
+  <text x="100" y="110" font-family="Consolas, 'Courier New', monospace" font-size="72" font-weight="bold"
+        fill="url(#accent)" filter="url(#glowSub)" letter-spacing="15">C</text>
+  <!-- U -->
+  <text x="195" y="110" font-family="Consolas, 'Courier New', monospace" font-size="72" font-weight="bold"
+        fill="#ff5533" letter-spacing="15">U</text>
+  <!-- R -->
+  <text x="290" y="110" font-family="Consolas, 'Courier New', monospace" font-size="72" font-weight="bold"
+        fill="#ff6644" letter-spacing="15">R</text>
+  <!-- S -->
+  <text x="385" y="110" font-family="Consolas, 'Courier New', monospace" font-size="72" font-weight="bold"
+        fill="#ff7755" letter-spacing="15">S</text>
+  <!-- E -->
+  <text x="480" y="110" font-family="Consolas, 'Courier New', monospace" font-size="72" font-weight="bold"
+        fill="#ff8866" letter-spacing="15">E</text>
+
+  <!-- Entity eye symbol -->
+  <g filter="url(#neon)">
+    <!-- Eye outer -->
+    <rect x="300" y="130" width="200" height="1" rx="0" fill="#ff4422" opacity="0.5"/>
+    <!-- Eye oval -->
+    <ellipse cx="400" cy="155" rx="30" ry="18" fill="none" stroke="url(#eye)" stroke-width="2.5"/>
+    <!-- Pupil -->
+    <ellipse cx="400" cy="155" rx="10" ry="12" fill="url(#eye)" opacity="0.9"/>
+    <!-- Glint -->
+    <ellipse cx="395" cy="150" rx="3" ry="4" fill="#ffcc88" opacity="0.6"/>
+  </g>
+
+  <!-- Subtitle -->
+  <text x="400" y="200" font-family="Consolas, 'Courier New', monospace" font-size="14" fill="#5a5a6a"
+        text-anchor="middle" letter-spacing="6">COGNITIVE UNIFIED RUNTIME SYSTEM ENTITY</text>
+
+  <!-- Footer bars -->
+  <line x1="150" y1="218" x2="650" y2="218" stroke="#ff4422" stroke-width="0.5" opacity="0.2"/>
+
+  <!-- Feature tags -->
+  <g font-family="Consolas, 'Courier New', monospace" font-size="11" fill="#5a5a6a" text-anchor="middle">
+    <text x="200" y="245" letter-spacing="2">◆ ZERO API KEYS</text>
+    <text x="400" y="245" letter-spacing="2">◆ 12 ADAPTERS</text>
+    <text x="600" y="245" letter-spacing="2">◆ AUTONOMOUS</text>
+  </g>
+
+  <!-- Corner decorations -->
+  <g fill="none" stroke="#ff4422" stroke-width="1" opacity="0.12">
+    <polyline points="30,30 30,50 40,50"/>
+    <polyline points="770,30 770,50 760,50"/>
+    <polyline points="30,250 30,230 40,230"/>
+    <polyline points="770,250 770,230 760,230"/>
+  </g>
+</svg>

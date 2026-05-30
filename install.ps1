@@ -60,12 +60,23 @@ Write-OK "Repository at $CurseHome"
 New-Item -ItemType Directory -Path $BinDir -Force | Out-Null
 $targetExe = Join-Path $BinDir 'curse.exe'
 
-# Try pre-built binary first
-$prebuiltExe = Join-Path $CurseHome 'releases\curse-dashboard.exe'
-if (Test-Path $prebuiltExe) {
-    Copy-Item $prebuiltExe $targetExe -Force
-    Write-OK 'Pre-built binary deployed'
-} else {
+# Try pre-built binary first (search multiple locations)
+$prebuiltPaths = @(
+    Join-Path $CurseHome 'curse.exe'
+    Join-Path $CurseHome 'releases\curse-dashboard.exe'
+    Join-Path $CurseHome 'curse-dashboard.exe'
+)
+$deployed = $false
+foreach ($src in $prebuiltPaths) {
+    if (Test-Path $src) {
+        Copy-Item $src $targetExe -Force
+        Write-OK "Pre-built binary deployed: $src"
+        $deployed = $true
+        break
+    }
+}
+
+if (-not $deployed) {
     # Build from source
     if (-not (Get-Command go -ErrorAction SilentlyContinue)) {
         Write-Step "Installing Go 1.26.0..."
@@ -84,8 +95,19 @@ if (Test-Path $prebuiltExe) {
     $env:GOROOT = 'C:\Go'
     $env:Path = "C:\Go\bin;$env:Path"
     go build -o $targetExe ./cmd/dashboard/ 2>&1 | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        Pop-Location
+        Write-Host "Build failed. Check Go installation." -ForegroundColor Red
+        exit 1
+    }
     Pop-Location
     Write-OK "Binary built: $targetExe"
+}
+
+# Verify the binary works
+if (-not (Test-Path $targetExe)) {
+    Write-Host "Binary not found at $targetExe. Install failed." -ForegroundColor Red
+    exit 1
 }
 
 # ── Register PATH ───────────────────────────────────────────

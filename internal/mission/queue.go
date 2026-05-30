@@ -1,6 +1,7 @@
 package mission
 
 import (
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -39,6 +40,7 @@ func New(task string, tags []string, modelHint string, maxSteps int) *Mission {
 }
 
 type Queue struct {
+	mu       sync.Mutex
 	missions []*Mission
 }
 
@@ -47,10 +49,14 @@ func NewQueue() *Queue {
 }
 
 func (q *Queue) Enqueue(m *Mission) {
+	q.mu.Lock()
+	defer q.mu.Unlock()
 	q.missions = append(q.missions, m)
 }
 
 func (q *Queue) Dequeue() *Mission {
+	q.mu.Lock()
+	defer q.mu.Unlock()
 	if len(q.missions) == 0 {
 		return nil
 	}
@@ -60,6 +66,8 @@ func (q *Queue) Dequeue() *Mission {
 }
 
 func (q *Queue) Peek() *Mission {
+	q.mu.Lock()
+	defer q.mu.Unlock()
 	if len(q.missions) == 0 {
 		return nil
 	}
@@ -67,6 +75,8 @@ func (q *Queue) Peek() *Mission {
 }
 
 func (q *Queue) SetStatus(id string, status Status) {
+	q.mu.Lock()
+	defer q.mu.Unlock()
 	for _, m := range q.missions {
 		if m.ID == id {
 			m.Status = status
@@ -76,13 +86,21 @@ func (q *Queue) SetStatus(id string, status Status) {
 }
 
 func (q *Queue) All() []*Mission {
-	return q.missions
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	out := make([]*Mission, len(q.missions))
+	copy(out, q.missions)
+	return out
 }
 
 func (q *Queue) Len() int {
+	q.mu.Lock()
+	defer q.mu.Unlock()
 	return len(q.missions)
 }
 
 func (q *Queue) Clear() {
+	q.mu.Lock()
+	defer q.mu.Unlock()
 	q.missions = make([]*Mission, 0)
 }
