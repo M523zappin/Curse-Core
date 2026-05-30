@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/M523zappin/Curse-Core/internal/agent"
+	"github.com/M523zappin/Curse-Core/internal/consciousness"
 	"github.com/M523zappin/Curse-Core/internal/healing"
 	"github.com/M523zappin/Curse-Core/internal/knowledge"
 	"github.com/M523zappin/Curse-Core/internal/mission"
@@ -48,6 +49,7 @@ type Engine struct {
 	skills    *skill.Store
 	knowledge *knowledge.Index
 	healer    *healing.HealingLoop
+	mind      *consciousness.Consciousness
 
 	ctx     context.Context
 	cancel  context.CancelFunc
@@ -69,6 +71,7 @@ func New(
 	skills *skill.Store,
 	knowledge *knowledge.Index,
 	healer *healing.HealingLoop,
+	mind *consciousness.Consciousness,
 ) *Engine {
 	return &Engine{
 		queue:     queue,
@@ -76,6 +79,7 @@ func New(
 		skills:    skills,
 		knowledge: knowledge,
 		healer:    healer,
+		mind:      mind,
 		phase:     PhaseIdle,
 	}
 }
@@ -202,6 +206,10 @@ func (e *Engine) Tick() {
 	e.trace("mission", fmt.Sprintf("processing mission: %s", m.Task))
 	e.emitStatus()
 
+	if e.mind != nil {
+		e.mind.Think(consciousness.ThoughtDecision, "engine", "plan", m.Task)
+	}
+
 	relevantSkills := e.skills.Search(m.Task, 5)
 	if len(relevantSkills) > 0 {
 		e.trace("skill", fmt.Sprintf("found %d relevant skills for: %s", len(relevantSkills), m.Task))
@@ -210,11 +218,24 @@ func (e *Engine) Tick() {
 		}
 	}
 
+	// Consult consciousness patterns for informed task planning
+	if e.mind != nil {
+		patterns := e.mind.Profile().TopPatterns(3)
+		for _, p := range patterns {
+			e.trace("consciousness", fmt.Sprintf("  pattern: %s (%s, confidence %.0f%%)", p.Name, p.Type, p.Confidence*100))
+			e.mind.Observe("pattern-matched", "engine", []string{p.Type, p.Name})
+		}
+	}
+
+	tasks := e.planTasks(m, relevantSkills)
+
 	e.mu.Lock()
 	e.phase = PhaseDispatching
 	e.mu.Unlock()
 
-	tasks := e.planTasks(m, relevantSkills)
+	if e.mind != nil {
+		e.mind.Think(consciousness.ThoughtDecision, "engine", "dispatch", fmt.Sprintf("%d tasks queued", len(tasks)))
+	}
 	for _, t := range tasks {
 		if err := e.fleet.Enqueue(t); err != nil {
 			e.trace("error", fmt.Sprintf("enqueue task: %v", err))
@@ -228,12 +249,20 @@ func (e *Engine) Tick() {
 	e.phase = PhaseExecuting
 	e.mu.Unlock()
 
+	if e.mind != nil {
+		e.mind.Think(consciousness.ThoughtDecision, "engine", "execute", fmt.Sprintf("mission %s dispatched to fleet", m.ID))
+	}
+
 	e.dispatchFleet()
 	results := e.collectResults(m.ID)
 
 	e.mu.Lock()
 	e.phase = PhaseCollecting
 	e.mu.Unlock()
+
+	if e.mind != nil {
+		e.mind.Think(consciousness.ThoughtObservation, "engine", "collect", fmt.Sprintf("%d results from mission %s", len(results), m.ID))
+	}
 
 	e.processResults(m, results)
 
@@ -252,6 +281,12 @@ func (e *Engine) Tick() {
 	e.metricsMu.Unlock()
 
 	e.trace("mission", fmt.Sprintf("mission complete in %s: %s", missionDur.Round(time.Millisecond), m.Task))
+
+	if e.mind != nil {
+		e.mind.Think(consciousness.ThoughtLearn, "engine", "complete",
+			fmt.Sprintf("mission %s done in %s, %d results", m.ID, missionDur.Round(time.Millisecond), len(results)))
+		_ = e.mind.Save()
+	}
 
 	e.mu.Lock()
 	e.phase = PhaseIdle
@@ -315,6 +350,17 @@ func (e *Engine) planTasks(m *mission.Mission, relevantSkills []*skill.Skill) []
 		"mission_id":   m.ID,
 		"mission_task": m.Task,
 		"tags":         m.Tags,
+	}
+
+	if e.mind != nil {
+		patterns := e.mind.Profile().TopPatterns(5)
+		if len(patterns) > 0 {
+			var patternNames []string
+			for _, p := range patterns {
+				patternNames = append(patternNames, p.Name)
+			}
+			contextData["consciousness_patterns"] = patternNames
+		}
 	}
 
 	if e.knowledge != nil {
@@ -416,6 +462,19 @@ func (e *Engine) processResults(m *mission.Mission, results []agent.TaskResult) 
 }
 
 func (e *Engine) learnFromMission(m *mission.Mission, results []agent.TaskResult) {
+	if e.mind != nil {
+		e.mind.Observe("mission-"+m.Task, "mission", append(m.Tags, "completed"))
+		for _, r := range results {
+			if r.Success {
+				e.mind.Observe("success", "outcome", []string{r.TaskID})
+				e.mind.LogConvention(fmt.Sprintf("task %s succeeded via %s", r.TaskID, r.Output[:min(len(r.Output), 80)]))
+			} else {
+				e.mind.Observe("failure", "outcome", []string{r.TaskID, r.Error})
+				e.mind.LogConvention(fmt.Sprintf("task %s failed: %s", r.TaskID, r.Error))
+			}
+		}
+	}
+
 	if e.knowledge == nil {
 		return
 	}

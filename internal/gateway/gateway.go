@@ -254,6 +254,7 @@ func (g *Gateway) InitEngine() {
 		g.skills,
 		g.knowledge,
 		g.healer,
+		g.consciousness,
 	)
 	g.engine.SetTraceHook(func(level, msg string) {
 		_ = level

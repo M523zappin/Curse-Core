@@ -23,31 +23,30 @@
 
 ## Install
 
-Install CURSE in one command. No API keys. No configuration. No `.env` file.
+Install CURSE in one command. No API keys. No configuration. No runtime.
 
-**Linux / macOS / WSL**
+### Linux / macOS / WSL
 ```bash
 curl -fsSL https://raw.githubusercontent.com/M523zappin/Curse-Core/master/install.sh | bash
 ```
 
-**Windows (PowerShell 5.1+)**
+### Windows (PowerShell 5.1+)
 ```powershell
 iex "& { $(irm https://raw.githubusercontent.com/M523zappin/Curse-Core/master/install.ps1) }"
 ```
 
-**Manual build** (requires Go 1.26+)
+### Manual build (any platform with Go 1.26+)
 ```bash
 git clone https://github.com/M523zappin/Curse-Core.git
 cd Curse-Core
 go build -o curse ./cmd/dashboard/
-./curse
 ```
 
 After install, just run:
 ```
 curse
 ```
-The TUI dashboard boots autonomously with a 12-second animation sequence.
+No API keys. No `.env`. No config. The TUI boots in 12 seconds.
 
 ---
 
@@ -103,6 +102,7 @@ A 12-second boot animation scans subsystems, auto-detects tools, awakens the ent
 /model <name>        Switch model
 /list                List all models
 /stats               System telemetry (models, budget, memory, uptime)
+/init                Scan project and generate AGENTS.md context
 /install-unsloth     Install Unsloth for local LLM inference
 /help                Show help
 /quit                Shutdown
