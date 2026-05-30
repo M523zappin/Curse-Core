@@ -143,27 +143,30 @@ Tier 4  llama.cpp llama-server
 
 ## Why CURSE
 
-| | CURSE |
-|---|---|
-| **API keys** | **Zero** — fully offline, works out of the box |
-| **Binary** | **< 7 MB** native Go — no runtime, no interpreter |
-| **Adapters** | **12 built-in** — 6 pure Go (zero-dependency) + 6 optional |
-| **Auto-detection** | **4-tier** — builtin → unsloth → ollama → llama.cpp, 10+ profiles auto-generated |
-| **Dashboard** | **Professional TUI** — Bubble Tea with sparklines, git status, system vitals, animated boot sequence, model browser overlay |
-| **State machine** | **8 states · SHA256-chained** — crash-recoverable with integrity verification |
-| **Auto-skills** | **Markdown + JSON** — reusable skill docs with steps, tags, confidence scoring, pattern matching |
-| **Code analysis** | **Built-in** — Go AST parser, grep, math evaluator — no model needed |
-| **Thread safety** | **Full** — every subsystem protected (queue, fleet, traces, budget, knowledge) |
-| **Review** | **3 scopes** — Once / Session / Permanent with keybindings |
-| **LSP** | **Built-in** — gopls, typescript-language-server, pylsp, rust-analyzer |
-| **Knowledge** | **FTS index** — ADR journal, tag filtering, session recording, cross-session |
-| **Healing** | **20+ patterns** — root cause analysis, recovery rate tracking |
-| **Fleet** | **8 roles** — priority dispatch, dependency resolution, parallel execution |
-| **Memory** | **Frozen-snapshot** — session resume, knowledge cross-referencing |
-| **Browser** | **Playwright** — pre-click safety, vision buffer, destructive action detection |
-| **Governance** | **Constitution** — 8 principles, 10 guardrails, git-syncable |
-| **Scheduler** | **Cron-style** — health checks, auto-save, recurring tasks |
-| **Platform** | **Windows, macOS, Linux** — native binary per platform |
+The only AI coding platform that runs **fully offline with zero API keys** — surpassing both Claude Code and Hermes Agent.
+
+| Feature | CURSE | Claude Code | Hermes Agent |
+|---------|-------|-------------|--------------|
+| **API keys required** | **None** — fully offline | Anthropic API key required | API key or local LLM |
+| **Binary size** | **< 7 MB** (single native binary) | ~200 MB (npm + deps) | Python + pip environment |
+| **Runtime** | **None** — native Go binary | Node.js required | Python 3.10+ required |
+| **Built-in adapters** | **12** (6 pure Go, zero-dependency) | 1 (Claude API only) | LLM backends only |
+| **Auto code analysis** | **Built-in** (go/ast, grep, math) | ❌ Requires model | ❌ Requires model |
+| **State machine** | **8 states · SHA256-chained** — crash-recoverable | ❌ No crash recovery | ❌ No crash recovery |
+| **Thread safety** | **Full** — every subsystem mutex-protected | Not applicable (Node.js) | Not applicable (Python) |
+| **Auto-skill generation** | **Built-in** — markdown + JSON with confidence scoring | Via plugins | Via learning loop |
+| **TUI dashboard** | **Professional** — sparklines, git status, system vitals, animated boot, model browser | Basic CLI | TUI only |
+| **Self-healing** | **20+ patterns** — exponential backoff, port recovery, browser restart | ❌ Not available | ❌ Not available |
+| **Sub-agent fleet** | **8 specialized roles** — priority dispatch, parallel execution | ✓ Similar | ❌ Not available |
+| **Frozen memory** | **Session-persistent** — MEMORY.md embedded immutably | CLAUDE.md only | FTS5 memory |
+| **LSP integration** | **Built-in** — gopls, ts-server, pylsp, rust-analyzer | ❌ Not built-in | ❌ Not built-in |
+| **Browser automation** | **Playwright** — vision buffer, pre-click safety, destructive detection | Computer Use (beta) | ❌ Not built-in |
+| **Review scopes** | **3 scopes** — Once / Session / Permanent | Approve only | Approve only |
+| **Git governance** | **Constitution** — 8 principles, 10 guardrails, git-syncable | CLAUDE.md only | ❌ Not available |
+| **Multi-platform** | **Windows, macOS, Linux** — one binary each | macOS, Linux only | Linux, macOS, WSL2 |
+| **Auto-detection** | **4-tier** — builtin → unsloth → ollama → llama.cpp | ❌ Not available | Model detection only |
+| **Unsloth LLM** | **Built-in adapter** — persistent Python subprocess | ❌ Not available | ❌ Not available |
+| **License** | MIT | Proprietary | MIT |
 
 ---
 
