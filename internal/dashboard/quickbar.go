@@ -15,12 +15,11 @@ type QuickAction struct {
 }
 
 var defaultQuickActions = []QuickAction{
-	{Key: "Ctrl+N", Label: "talk", Desc: "natural language", Color: ColorPsychic},
+	{Key: "Ctrl+N", Label: "new", Desc: "clear buffer", Color: ColorPsychic},
 	{Key: "Tab", Label: "model", Desc: "cycle models", Color: ColorSpiral},
 	{Key: "/", Label: "cmd", Desc: "commands", Color: ColorAccent},
 	{Key: "Ctrl+M", Label: "browse", Desc: "model browser", Color: ColorProcessing},
 	{Key: "Ctrl+P", Label: "pause", Desc: "pause/resume", Color: ColorWarning},
-	{Key: "Ctrl+Y", Label: "sync", Desc: "sync constitution", Color: ColorToxic},
 	{Key: "Ctrl+S", Label: "quit", Desc: "shutdown", Color: ColorError},
 }
 
