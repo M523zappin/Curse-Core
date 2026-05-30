@@ -66,6 +66,21 @@ func (reg *ModelRegistry) ActiveProfile() (ModelProfile, bool) {
 	return reg.GetProfile(reg.Active)
 }
 
+func (reg *ModelRegistry) Save(path string) error {
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return fmt.Errorf("mkdir models dir: %w", err)
+	}
+	data, err := json.MarshalIndent(reg, "", "  ")
+	if err != nil {
+		return fmt.Errorf("marshal registry: %w", err)
+	}
+	if err := os.WriteFile(path, data, 0644); err != nil {
+		return fmt.Errorf("write models: %w", err)
+	}
+	return nil
+}
+
 func resolveEnv(s string) string {
 	for strings.Contains(s, "${") {
 		start := strings.Index(s, "${")

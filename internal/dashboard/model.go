@@ -264,7 +264,7 @@ func (m *Model) showSplash() {
 		m.AddTrace("entity", "  ██  language » LSP diagnostics  ·  gopls  ·  typescript")
 		m.AddTrace("entity", "  ██  ethics » HITL review  ·  constitution guardrails")
 		m.AddTrace("system", "  ◈  ENTITY ACTIVE  ·  awaiting directive")
-		m.AddTrace("system", "  ◈  Ctrl+N talk  ·  Ctrl+M model browser  ·  Ctrl+P pause  ·  / commands")
+		m.AddTrace("system", "  ◈  Ctrl+N talk  ·  Tab cycle model  ·  Ctrl+M browse  ·  Ctrl+P pause  ·  / commands")
 	}
 }
 
@@ -474,6 +474,10 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.quitting = true
 				return m, tea.Quit
 			}
+		case "tab":
+			m.cycleModel(1)
+		case "shift+tab":
+			m.cycleModel(-1)
 		}
 	}
 	m.missionQueue.Update(msg)
@@ -552,8 +556,8 @@ func (m *Model) executeCommand() {
 		return
 
 	case cmd == "/help" || cmd == "/h":
-		m.AddTrace("system", "═ KEYS: Ctrl+N talk  ·  Ctrl+M model browser  ·  Ctrl+P pause  ·  Ctrl+R resume  ·  Ctrl+B browser")
-		m.AddTrace("system", "═ KEYS: Ctrl+Y sync  ·  Ctrl+S quit  ·  ↑↓ navigate  ·  Enter select  ·  Esc reject  ·  o/s/p scope  ·  q quit")
+		m.AddTrace("system", "═ KEYS: Ctrl+N talk  ·  Ctrl+M model browser  ·  Tab cycle model  ·  Ctrl+P pause  ·  Ctrl+R resume")
+		m.AddTrace("system", "═ KEYS: Ctrl+B browser  ·  Ctrl+Y sync  ·  Ctrl+S quit  ·  ↑↓ navigate  ·  Enter select  ·  Esc reject  ·  o/s/p scope  ·  q quit")
 		m.AddTrace("system", "═ CMDS: /model <name>  ·  /list  ·  /stats  ·  /init  ·  /install-unsloth  ·  /help  ·  /quit")
 
 	case cmd == "/install-unsloth" || cmd == "/iu":
@@ -766,6 +770,40 @@ func (m *Model) toggleModelBrowser() {
 	}
 }
 
+func (m *Model) cycleModel(direction int) {
+	reg := m.gateway.Registry()
+	if reg == nil || len(reg.Profiles) == 0 {
+		return
+	}
+	names := make([]string, 0, len(reg.Profiles))
+	for name := range reg.Profiles {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	active := m.gateway.ActiveModel()
+	idx := -1
+	for i, name := range names {
+		if name == active {
+			idx = i
+			break
+		}
+	}
+	if idx == -1 {
+		idx = 0
+	} else {
+		idx = (idx + direction + len(names)) % len(names)
+	}
+	selected := names[idx]
+	if selected == active {
+		return
+	}
+	if err := m.gateway.SwitchModel(selected); err != nil {
+		m.AddTrace("error", fmt.Sprintf("Switch failed: %v", err))
+	} else {
+		m.AddTrace("system", fmt.Sprintf("Switched model → %s", selected))
+	}
+}
+
 func (m *Model) renderModelBrowser(overlayWidth int) string {
 	if !m.modelBrowserVisible || len(m.modelBrowserList) == 0 {
 		return ""
@@ -780,7 +818,7 @@ func (m *Model) renderModelBrowser(overlayWidth int) string {
 	title := lipgloss.NewStyle().
 		Foreground(headerColor).
 		Bold(true).
-		Render(fmt.Sprintf("  ◈  SELECT MODEL  ◈  (↑↓ enter  esc)"))
+		Render(fmt.Sprintf("  ◈  SELECT MODEL  ◈  (↑↓ enter  esc  tab to cycle)"))
 	lines = append(lines, "", title)
 	lines = append(lines, lipgloss.NewStyle().Foreground(ColorBorder).Render(strings.Repeat("─", overlayWidth-4)))
 

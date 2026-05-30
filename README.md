@@ -61,11 +61,11 @@ Press `Ctrl+N` to enter natural language mode:
 
 CURSE decomposes your request into tasks, dispatches them to specialized sub-agents, collects results, and records the outcome in its consciousness journal.
 
-Use `/` commands for direct control:
+Press `Tab` to cycle through available models, or use `/` commands for direct control:
 
 ```
-/model <name>     Switch model
-/list             Browse available models
+/model <name>     Switch to a specific model
+/list             Browse all available models
 /init             Generate project context file
 ```
 
@@ -76,9 +76,11 @@ Use `/` commands for direct control:
 | Key | Action |
 |---|---|
 | `Ctrl+N` | Natural language mode — type any instruction |
+| `Tab` | Cycle to next model |
+| `Shift+Tab` | Cycle to previous model |
 | `/` | Command mode |
-| `Ctrl+M` | Open model browser |
-| `Ctrl+P` | Pause / Resume execution |
+| `Ctrl+M` | Open model browser overlay |
+| `Ctrl+P` | Pause / Resume |
 | `Ctrl+R` | Resume when paused |
 | `Ctrl+B` | Start Playwright browser |
 | `Ctrl+Y` | Sync constitution from remote |

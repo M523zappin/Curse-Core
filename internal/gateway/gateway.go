@@ -67,6 +67,7 @@ type Gateway struct {
 	memory         *MemoryStore
 	budget         *engine.IterationBudget
 	consciousness  *consciousness.Consciousness
+	modelsPath     string
 }
 
 func New(curseDir, configDir string) *Gateway {
@@ -146,9 +147,9 @@ func (g *Gateway) Init(ctx context.Context) error {
 		go g.InitLSP("go")
 	}
 
-	modelsPath := filepath.Join(g.configDir, "models.json")
-	if _, err := os.Stat(modelsPath); err == nil {
-		reg, err := LoadModels(modelsPath)
+	g.modelsPath = filepath.Join(g.configDir, "models.json")
+	if _, err := os.Stat(g.modelsPath); err == nil {
+		reg, err := LoadModels(g.modelsPath)
 		if err != nil {
 			return fmt.Errorf("load models: %w", err)
 		}
@@ -430,9 +431,13 @@ func (g *Gateway) activateProfile(name string) error {
 	if !ok {
 		return fmt.Errorf("unknown profile: %s", name)
 	}
+	adapter := g.buildAdapter(profile)
+	if adapter == nil {
+		return fmt.Errorf("no adapter factory registered for provider %q", profile.Provider)
+	}
 	g.activeModel = name
 	g.truncator = NewContextTruncator(profile)
-	g.adapter = g.buildAdapter(profile)
+	g.adapter = adapter
 	return nil
 }
 
@@ -448,7 +453,16 @@ func (g *Gateway) SwitchModel(name string) error {
 	if g.registry == nil {
 		return fmt.Errorf("no model registry loaded")
 	}
-	return g.activateProfile(name)
+	if err := g.activateProfile(name); err != nil {
+		return err
+	}
+	g.registry.Active = name
+	if g.modelsPath != "" {
+		if err := g.registry.Save(g.modelsPath); err != nil {
+			return fmt.Errorf("save registry: %w", err)
+		}
+	}
+	return nil
 }
 
 func (g *Gateway) Adapter() Adapter {
