@@ -23,19 +23,31 @@
 
 ## Install
 
+Install CURSE in one command. No API keys. No configuration. No `.env` file.
+
+**Linux / macOS / WSL**
 ```bash
-# One line, any Unix
 curl -fsSL https://raw.githubusercontent.com/M523zappin/Curse-Core/master/install.sh | bash
-
-# Windows (PowerShell 5.1+)
-iex "& { $(irm https://raw.githubusercontent.com/M523zappin/Curse-Core/master/install.ps1) }"
-
-# Manual
-git clone https://github.com/M523zappin/Curse-Core.git && cd Curse-Core
-go build -o curse ./cmd/dashboard/ && ./curse
 ```
 
-No `.env` file needed. CURSE auto-detects everything on your system on first launch.
+**Windows (PowerShell 5.1+)**
+```powershell
+iex "& { $(irm https://raw.githubusercontent.com/M523zappin/Curse-Core/master/install.ps1) }"
+```
+
+**Manual build** (requires Go 1.26+)
+```bash
+git clone https://github.com/M523zappin/Curse-Core.git
+cd Curse-Core
+go build -o curse ./cmd/dashboard/
+./curse
+```
+
+After install, just run:
+```
+curse
+```
+The TUI dashboard boots autonomously with a 12-second animation sequence.
 
 ---
 
