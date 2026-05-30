@@ -1,8 +1,5 @@
 <p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="assets/curse-logo.svg">
-    <img src="assets/curse-logo.svg" alt="CURSE" width="600">
-  </picture>
+  <img src="assets/curse-logo.svg" alt="CURSE" width="600">
 </p>
 
 <p align="center">
@@ -17,6 +14,14 @@
   <a href="#adapters">Adapters</a> •
   <a href="#consciousness">Consciousness</a> •
   <a href="#architecture">Architecture</a>
+</p>
+
+<p align="center">
+  <img src="assets/crona-portrait.jpg" alt="Author" width="100" style="border-radius: 50%;">
+</p>
+
+<p align="center">
+  <b>Developed by <a href="https://github.com/M523zappin">M523zappin</a></b>
 </p>
 
 CURSE is a high-performance, autonomous terminal entity designed for deep software engineering. It bridges the gap between natural language intent and codebase execution through a unified, intelligence-driven interface. Operating fully offline with zero API keys, CURSE understands your codebase, dispatches specialized sub-agents, and maintains a persistent consciousness across sessions.
