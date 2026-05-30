@@ -327,6 +327,34 @@ func (m *SystemStatusModel) View(width int, frame int, sessionDuration time.Dura
 
 	lines = append(lines, divider)
 
+	// ── Consciousness section ──
+	if c := m.gateway.Consciousness(); c != nil {
+		lvl := c.Level()
+		label := c.LevelLabel()
+		thoughts := c.ThoughtCount()
+		summary := c.Profile().Summary()
+		consColor := ColorAccent
+		switch {
+		case lvl < 10:
+			consColor = ColorFgInactive
+		case lvl < 45:
+			consColor = ColorFgSubtle
+		case lvl < 75:
+			consColor = ColorProcessing
+		default:
+			consColor = ColorSuccess
+		}
+		lines = append(lines, fmt.Sprintf("  %s %s (%.1f)  %s %d",
+			coloredLabel("soul", consColor),
+			lipgloss.NewStyle().Foreground(consColor).Render(label),
+			lvl,
+			coloredLabel("thoughts", ColorFgSubtle),
+			thoughts))
+		lines = append(lines, fmt.Sprintf("  %s  %s",
+			strings.Repeat(" ", 4),
+			lipgloss.NewStyle().Foreground(ColorFgSubtle).Render(summary)))
+	}
+
 	// ── Service status section ──
 	engStatus := m.EngineStatus()
 	engDot := DotSecure

@@ -9,6 +9,7 @@ import (
 
 	"github.com/M523zappin/Curse-Core/internal/agent"
 	"github.com/M523zappin/Curse-Core/internal/computer"
+	"github.com/M523zappin/Curse-Core/internal/consciousness"
 	"github.com/M523zappin/Curse-Core/internal/engine"
 	"github.com/M523zappin/Curse-Core/internal/governance"
 	"github.com/M523zappin/Curse-Core/internal/healing"
@@ -63,8 +64,9 @@ type Gateway struct {
 	startTime   time.Time
 	resumed     bool
 
-	memory      *MemoryStore
-	budget      *engine.IterationBudget
+	memory         *MemoryStore
+	budget         *engine.IterationBudget
+	consciousness  *consciousness.Consciousness
 }
 
 func New(curseDir, configDir string) *Gateway {
@@ -121,6 +123,9 @@ func (g *Gateway) Init(ctx context.Context) error {
 			})
 		}
 	})
+
+	// ── Consciousness Engine (time-travel journal + soul) ─
+	g.InitConsciousness()
 
 	// ── Memory System (frozen-snapshot) ───────────────────
 	g.InitMemory()
@@ -190,6 +195,21 @@ func (g *Gateway) Init(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+func (g *Gateway) InitConsciousness() {
+	if g.consciousness != nil {
+		return
+	}
+	c, err := consciousness.New(g.curseDir)
+	if err != nil {
+		return
+	}
+	g.consciousness = c
+}
+
+func (g *Gateway) Consciousness() *consciousness.Consciousness {
+	return g.consciousness
 }
 
 func (g *Gateway) InitMemory() {

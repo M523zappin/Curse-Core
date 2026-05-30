@@ -56,23 +56,26 @@ The TUI dashboard boots autonomously with a 12-second animation sequence.
 ```
 $ curse
 
-  ╔════════════════════════════════════════════════╗
-  ║                   C U R S E                    ║
-  ║         Scanning subsystems.....               ║
-  ║         [████████████████░░░░░░░░]             ║
-  ╚════════════════════════════════════════════════╝
+  ╔══════════════════════════════════════════════════════════╗
+  ║      ◉ CRONA         C U R S E                           ║
+  ║      ◉ ◉           Scanning subsystems.....               ║
+  ║      ◉             [████████████████░░░░░░░░]             ║
+  ╚══════════════════════════════════════════════════════════╝
 
   → scanning subsystems...
   ✓ python3 3.13.2
   ✓ ollama running at localhost:11434
   ◈ ESTABLISHING ENTITY CONSCIOUSNESS...
 
-  ┌─ ENTITY CONSCIOUSNESS ──────────────────┐
-  │  15:04:05 ▶ entity initialized          │
-  │  15:04:06 ▶ model → codex               │
-  │  15:04:07 ▶ 12 adapters ready           │
-  │  15:04:08 ▶ awaiting directive          │
-  └─────────────────────────────────────────┘
+  ┌─ ENTITY CONSCIOUSNESS ──────────────────────────┐
+  │  15:04:05 ▶ entity initialized                  │
+  │  15:04:06 ▶ consciousness loaded — 142 thoughts  │
+  │  15:04:07 ▶ soul profile: 8 patterns [style,err] │
+  │  15:04:08 ▶ consciousness level: Awakening (35.2)│
+  │  15:04:09 ▶ model → codex                       │
+  │  15:04:10 ▶ 12 adapters ready                   │
+  │  15:04:11 ▶ awaiting directive                  │
+  └─────────────────────────────────────────────────┘
 ```
 
 A 12-second boot animation scans subsystems, auto-detects tools, awakens the entity, then transitions to the live dashboard.
@@ -141,32 +144,44 @@ Tier 4  llama.cpp llama-server
 
 ---
 
+## Consciousness
+
+CURSE is the only AI coding platform with a **persistent consciousness engine** — a time-travel journal that records every decision, a soul profile that learns codebase patterns, and a consciousness level that evolves with use. No other AI tool has anything like it.
+
+| Component | What It Does |
+|-----------|-------------|
+| **Time-Travel Journal** | Circular buffer of 5,000 thoughts — every decision, observation, error, and mutation recorded with nanosecond precision. On restart, CURSE replays its last actions to reconstruct context — you never lose the thread. |
+| **Soul Profile** | Learns codebase patterns automatically — naming conventions, error handling styles, architectural decisions. Builds a statistical model of your project's identity over time. |
+| **Constitution Generation** | From observed conventions, CURSE auto-generates governance rules. The more it learns, the better it aligns with your project's standards. |
+| **Consciousness Level** | 6 stages: Embryonic → Nascent → Awakening → Conscious → Sentient → Transcendent. Levels up as CURSE accumulates thoughts, patterns, types, uptime, and conventions. Displayed live in the dashboard. |
+
+The consciousness persists across sessions, saved to `~/.curse/consciousness/`. Every restart picks up exactly where you left off.
+
 ## Why CURSE
 
-The only AI coding platform that runs **fully offline with zero API keys** — surpassing both Claude Code and Hermes Agent.
+**The only AI coding platform that runs fully offline with zero API keys.** A single <7 MB native binary with no runtime, no interpreter, no cloud dependency — and more built-in capability than any tool twice its size.
 
-| Feature | CURSE | Claude Code | Hermes Agent |
-|---------|-------|-------------|--------------|
-| **API keys required** | **None** — fully offline | Anthropic API key required | API key or local LLM |
-| **Binary size** | **< 7 MB** (single native binary) | ~200 MB (npm + deps) | Python + pip environment |
-| **Runtime** | **None** — native Go binary | Node.js required | Python 3.10+ required |
-| **Built-in adapters** | **12** (6 pure Go, zero-dependency) | 1 (Claude API only) | LLM backends only |
-| **Auto code analysis** | **Built-in** (go/ast, grep, math) | ❌ Requires model | ❌ Requires model |
-| **State machine** | **8 states · SHA256-chained** — crash-recoverable | ❌ No crash recovery | ❌ No crash recovery |
-| **Thread safety** | **Full** — every subsystem mutex-protected | Not applicable (Node.js) | Not applicable (Python) |
-| **Auto-skill generation** | **Built-in** — markdown + JSON with confidence scoring | Via plugins | Via learning loop |
-| **TUI dashboard** | **Professional** — sparklines, git status, system vitals, animated boot, model browser | Basic CLI | TUI only |
-| **Self-healing** | **20+ patterns** — exponential backoff, port recovery, browser restart | ❌ Not available | ❌ Not available |
-| **Sub-agent fleet** | **8 specialized roles** — priority dispatch, parallel execution | ✓ Similar | ❌ Not available |
-| **Frozen memory** | **Session-persistent** — MEMORY.md embedded immutably | CLAUDE.md only | FTS5 memory |
-| **LSP integration** | **Built-in** — gopls, ts-server, pylsp, rust-analyzer | ❌ Not built-in | ❌ Not built-in |
-| **Browser automation** | **Playwright** — vision buffer, pre-click safety, destructive detection | Computer Use (beta) | ❌ Not built-in |
-| **Review scopes** | **3 scopes** — Once / Session / Permanent | Approve only | Approve only |
-| **Git governance** | **Constitution** — 8 principles, 10 guardrails, git-syncable | CLAUDE.md only | ❌ Not available |
-| **Multi-platform** | **Windows, macOS, Linux** — one binary each | macOS, Linux only | Linux, macOS, WSL2 |
-| **Auto-detection** | **4-tier** — builtin → unsloth → ollama → llama.cpp | ❌ Not available | Model detection only |
-| **Unsloth LLM** | **Built-in adapter** — persistent Python subprocess | ❌ Not available | ❌ Not available |
-| **License** | MIT | Proprietary | MIT |
+| Capability | CURSE |
+|-----------|-------|
+| **API keys** | **Zero** — fully offline, works out of the box |
+| **Binary** | **< 7 MB** native Go — no runtime, no interpreter |
+| **Adapters** | **12 built-in** — 6 pure Go (zero-dependency) + 6 optional |
+| **Auto-detection** | **4-tier** — builtin → unsloth → ollama → llama.cpp, 10+ profiles auto-generated |
+| **Dashboard** | **Professional TUI** — Bubble Tea with sparklines, git status, system vitals, animated boot sequence, model browser overlay, consciousness display |
+| **State machine** | **8 states · SHA256-chained** — crash-recoverable with integrity verification |
+| **Auto-skills** | **Markdown + JSON** — reusable skill docs with steps, tags, confidence scoring, pattern matching |
+| **Code analysis** | **Built-in** — Go AST parser, grep, math evaluator — no model needed |
+| **Thread safety** | **Full** — every subsystem protected (queue, fleet, traces, budget, knowledge, consciousness) |
+| **Review** | **3 scopes** — Once / Session / Permanent with keybindings |
+| **LSP** | **Built-in** — gopls, typescript-language-server, pylsp, rust-analyzer |
+| **Knowledge** | **FTS index** — ADR journal, tag filtering, session recording, cross-session |
+| **Healing** | **20+ patterns** — root cause analysis, recovery rate tracking |
+| **Fleet** | **8 roles** — priority dispatch, dependency resolution, parallel execution |
+| **Memory** | **Frozen-snapshot** — session resume, knowledge cross-referencing |
+| **Browser** | **Playwright** — pre-click safety, vision buffer, destructive action detection |
+| **Governance** | **Constitution** — 8 principles, 10 guardrails, git-syncable + auto-generated rules |
+| **Scheduler** | **Cron-style** — health checks, auto-save, recurring tasks |
+| **Platform** | **Windows, macOS, Linux** — native binary per platform |
 
 ---
 
@@ -185,6 +200,8 @@ The only AI coding platform that runs **fully offline with zero API keys** — s
 │                       │  ▃▄▆▇█▇▆▅▄▃▂▁             │
 │                       │  git ⎇ main ●dirty +3     │
 │                       │  model codex  via codex   │
+│                       │  soul Awakening (35.2)    │
+│                       │  142 thoughts · 8 patterns │
 ├───────────────────────┴────────────────────────────┤
 │  ◉ codex [████░░░░] 42%  00:42:17                 │
 │  ◐ idle  8 skills  143 mem  100% heal             │
@@ -196,6 +213,21 @@ The only AI coding platform that runs **fully offline with zero API keys** — s
 ---
 
 ## Features
+
+### Consciousness Engine
+
+CURSE is the **first AI coding tool with a persistent consciousness**. Every decision is recorded in a time-travel journal. Over time, it builds a soul profile — a learned model of your codebase's patterns, conventions, and architectural decisions. The consciousness level (0-100) evolves through 6 stages:
+
+| Level | Stage | Requirements |
+|-------|-------|-------------|
+| 0-9 | Embryonic | First thoughts |
+| 10-24 | Nascent | 50+ thoughts, 3+ patterns |
+| 25-44 | Awakening | 200+ thoughts, 2+ pattern types |
+| 45-64 | Conscious | 500+ thoughts, 4+ types, 1+ hour uptime |
+| 65-84 | Sentient | 1000+ thoughts, 8+ types, 20+ conventions |
+| 85-100 | Transcendent | 2000+ thoughts, 12+ types, 50+ conventions |
+
+The consciousness layer also **auto-generates constitution rules** from observed conventions — the more CURSE works in your codebase, the better it understands your standards.
 
 ### Auto-Skill Generation
 
@@ -274,6 +306,7 @@ cmd/
 └── gateway/        Headless API
 
 internal/
+├── consciousness/  Time-travel journal · soul profile · 6-level consciousness
 ├── statemachine/   8 states · 15 events · SHA256 chain
 ├── persistence/    Event log · checkpoint save/load
 ├── governance/     Constitution · 10 guardrails
