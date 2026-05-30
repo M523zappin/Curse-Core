@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/M523zappin/Curse-Core/internal/gateway"
 )
@@ -74,7 +73,11 @@ func (a *UnslothAdapter) Send(ctx context.Context, req *gateway.Prompt) (*gatewa
 		ureq.MaxTokens = 2048
 	}
 
-	data, _ := json.Marshal(ureq)
+	data, err := json.Marshal(ureq)
+	if err != nil {
+		a.kill()
+		return nil, fmt.Errorf("unsloth marshal: %w", err)
+	}
 	if _, err := a.stdin.WriteString(string(data) + "\n"); err != nil {
 		a.kill()
 		return nil, fmt.Errorf("unsloth write: %w", err)
@@ -163,6 +166,40 @@ func (a *UnslothAdapter) ensureProc(ctx context.Context) error {
 	a.stderr = bufio.NewScanner(stderr)
 	a.procAlive = true
 
+	// Wait for readiness signal from the Python process
+	readyCh := make(chan error, 1)
+	go func() {
+		if a.stdout.Scan() {
+			var readyResp unslothResponse
+			if err := json.Unmarshal([]byte(a.stdout.Text()), &readyResp); err != nil {
+				readyCh <- fmt.Errorf("readiness decode: %w", err)
+				return
+			}
+			if readyResp.Error != "" {
+				readyCh <- fmt.Errorf("readiness error: %s", readyResp.Error)
+				return
+			}
+			if readyResp.Content != "__ready__" {
+				readyCh <- fmt.Errorf("unexpected readiness signal: %s", readyResp.Content)
+				return
+			}
+			readyCh <- nil
+		} else {
+			errMsg := readStderr(a.stderr)
+			readyCh <- fmt.Errorf("process exited before readiness (stderr: %s)", errMsg)
+		}
+	}()
+	select {
+	case <-ctx.Done():
+		a.kill()
+		return ctx.Err()
+	case err := <-readyCh:
+		if err != nil {
+			a.kill()
+			return fmt.Errorf("unsloth readiness: %w", err)
+		}
+	}
+
 	go func() {
 		cmd.Wait()
 		a.mu.Lock()
@@ -177,7 +214,9 @@ func (a *UnslothAdapter) writeHelper(path string) error {
 	if _, err := os.Stat(path); err == nil {
 		return nil
 	}
-	os.MkdirAll(filepath.Dir(path), 0755)
+	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+		return fmt.Errorf("create helper dir: %w", err)
+	}
 
 	script := `#!/usr/bin/env python3
 """CURSE Unsloth helper — persistent LLM inference process.

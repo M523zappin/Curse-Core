@@ -53,8 +53,9 @@ type ReviewRequest struct {
 }
 
 type ReviewDecision struct {
-	Approved bool
-	Reason   string
+	Approved bool          `json:"approved"`
+	Reason   string        `json:"reason"`
+	Scope    ApprovalScope `json:"scope,omitempty"`
 }
 
 type VisionSnapshot struct {

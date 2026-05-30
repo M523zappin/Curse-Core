@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # ─────────────────────────────────────────────────────────────
-# CURSE — Zero-Touch Installer (Linux / macOS / WSL)
+# CURSE — Autonomous Installer (Linux / macOS / WSL)
+# No API keys needed. No forced cloud auth. Just run.
 # Usage:  curl -fsSL https://raw.githubusercontent.com/M523zappin/Curse-Core/master/install.sh | bash
 # ─────────────────────────────────────────────────────────────
 set -euo pipefail
@@ -20,7 +21,7 @@ NC='\033[0m'
 echo -e "${CYAN}${BOLD}"
 echo "  ╔══════════════════════════════════════════════╗"
 echo "  ║              C U R S E                       ║"
-echo "  ║  Zero-Touch Installer                        ║"
+echo "  ║  Autonomous Installer — Zero API Keys        ║"
 echo "  ╚══════════════════════════════════════════════╝"
 echo -e "${NC}"
 
@@ -70,28 +71,42 @@ fi
 # ── Install binary ─────────────────────────────────────────
 mkdir -p "${BIN_DIR}"
 
-if [ -f "${CURSE_HOME}/releases/curse-${OS}-${ARCH}" ]; then
-  cp "${CURSE_HOME}/releases/curse-${OS}-${ARCH}" "${BIN_DIR}/curse"
-elif command -v go &>/dev/null; then
-  echo -e "  ${CYAN}•${NC} Building from source..."
-  cd "${CURSE_HOME}"
-  CGO_ENABLED=0 go build -o "${BIN_DIR}/curse" ./cmd/dashboard/
-else
-  echo -e "  ${CYAN}•${NC} Building with Go (will install Go first)..."
+install_via_prebuilt() {
+  local binary="${CURSE_HOME}/releases/curse-${OS}-${ARCH}"
+  if [ -f "$binary" ]; then
+    cp "$binary" "${BIN_DIR}/curse"
+    chmod +x "${BIN_DIR}/curse"
+    echo -e "  ${GREEN}✔${NC} Pre-built binary deployed"
+    return 0
+  fi
+  return 1
+}
+
+install_via_go() {
   if ! command -v go &>/dev/null; then
+    echo -e "  ${CYAN}•${NC} Installing Go..."
     case "${OS}" in
       linux)
-        curl -fsSL https://go.dev/dl/go1.23.4.${OS}-${ARCH}.tar.gz | sudo tar -C /usr/local -xzf -
+        curl -fsSL https://go.dev/dl/go1.26.0.${OS}-${ARCH}.tar.gz | sudo tar -C /usr/local -xzf -
         export PATH="/usr/local/go/bin:${PATH}" ;;
       darwin)
+        if ! command -v brew &>/dev/null; then
+          /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+        fi
         brew install go ;;
     esac
   fi
+  echo -e "  ${CYAN}•${NC} Building from source..."
   cd "${CURSE_HOME}"
   CGO_ENABLED=0 go build -o "${BIN_DIR}/curse" ./cmd/dashboard/
-fi
+  chmod +x "${BIN_DIR}/curse"
+  echo -e "  ${GREEN}✔${NC} Binary built from source"
+}
 
-chmod +x "${BIN_DIR}/curse"
+# Try pre-built first, then Go build
+if ! install_via_prebuilt; then
+  install_via_go
+fi
 
 # ── Register PATH ──────────────────────────────────────────
 SHELL_CONFIG="${HOME}/.bashrc"
@@ -103,33 +118,10 @@ if ! grep -q '\.local/bin' "${SHELL_CONFIG}" 2>/dev/null; then
   echo -e "  ${CYAN}•${NC} Added ~/.local/bin to PATH in ${SHELL_CONFIG}"
 fi
 
-# ── Bootstrap .env ──────────────────────────────────────────
-if [ ! -f "${CURSE_HOME}/.env" ]; then
-  cp "${CURSE_HOME}/.env.example" "${CURSE_HOME}/.env"
-  echo -e "  ${CYAN}•${NC} Created ${CURSE_HOME}/.env (edit with your API keys)"
-fi
-
-# ── GitHub Auth handshake ──────────────────────────────────
-if ! command -v gh &>/dev/null; then
-  echo -e "  ${CYAN}•${NC} Installing GitHub CLI..."
-  case "${OS}" in
-    linux)
-      curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
-      echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
-      sudo apt-get update && sudo apt-get install -y gh ;;
-    darwin) brew install gh ;;
-  esac
-fi
-
-if ! gh auth status &>/dev/null; then
-  echo -e "\n  ${CYAN}•${NC} Authenticating with GitHub..."
-  gh auth login --web || true
-fi
-
 # ── Done ────────────────────────────────────────────────────
 echo -e "\n${GREEN}${BOLD}  ✔ CURSE installed successfully${NC}"
 echo -e "\n  ${CYAN}•${NC} Binary: ${BIN_DIR}/curse"
 echo -e "  ${CYAN}•${NC} Source: ${CURSE_HOME}"
-echo -e "  ${CYAN}•${NC} Config: ${CURSE_HOME}/.env"
-echo -e "\n  ${BOLD}Run:${NC}  curse"
+echo -e "\n  ${BOLD}No API keys needed.${NC}"
+echo -e "  ${BOLD}Run:${NC}  curse"
 echo -e "  ${BOLD}Or:${NC}   source ${SHELL_CONFIG} && curse\n"

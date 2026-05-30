@@ -5,15 +5,37 @@ import (
 	"strings"
 )
 
+type ApprovalScope int
+
+const (
+	ScopeOnce     ApprovalScope = iota
+	ScopeSession
+	ScopePermanent
+)
+
+func (s ApprovalScope) String() string {
+	switch s {
+	case ScopeOnce:
+		return "once"
+	case ScopeSession:
+		return "session"
+	case ScopePermanent:
+		return "permanent"
+	default:
+		return "unknown"
+	}
+}
+
 type SafetyCheckResult struct {
-	Passed          bool                `json:"passed"`
-	ActionID        string              `json:"action_id"`
-	ActionType      ActionType          `json:"action_type"`
-	Target          string              `json:"target"`
+	Passed          bool                 `json:"passed"`
+	ActionID        string               `json:"action_id"`
+	ActionType      ActionType           `json:"action_type"`
+	Target          string               `json:"target"`
 	Classification  SafetyClassification `json:"classification"`
-	RequiresReview  bool                `json:"requires_review"`
-	Reviewed        bool                `json:"reviewed"`
-	ReviewApproved  bool                `json:"review_approved"`
+	RequiresReview  bool                 `json:"requires_review"`
+	Reviewed        bool                 `json:"reviewed"`
+	ReviewApproved  bool                 `json:"review_approved"`
+	Scope           ApprovalScope        `json:"scope,omitempty"`
 }
 
 type SafetyChecker struct {

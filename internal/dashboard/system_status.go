@@ -302,7 +302,8 @@ func (m *SystemStatusModel) View(width int, frame int, sessionDuration time.Dura
 		branchStr := lipgloss.NewStyle().Foreground(branchColor).Render(fmt.Sprintf("⎇ %s", git.Branch))
 		lines = append(lines, fmt.Sprintf("  %s %s%s%s",
 			coloredLabel("git", ColorFgSubtle), branchStr, dirtyMark, untrackedMark))
-		_ = commitStr
+		commitLine := coloredLabel(git.LastCommit, ColorFgInactive)
+		lines = append(lines, fmt.Sprintf("  %s%s", strings.Repeat(" ", 10), commitLine))
 	}
 
 	// ── Model info section ──

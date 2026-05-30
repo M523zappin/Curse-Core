@@ -2,6 +2,7 @@ package dashboard
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
 	"sort"
 	"strings"
@@ -10,6 +11,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/M523zappin/Curse-Core/internal/computer"
 	"github.com/M523zappin/Curse-Core/internal/gateway"
 	"github.com/M523zappin/Curse-Core/internal/persistence"
 	"github.com/M523zappin/Curse-Core/internal/statemachine"
@@ -197,14 +199,15 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case "ctrl+b":
 			if !m.browserReady {
+				m.browserReady = true
 				go func() {
 					if err := m.gateway.Computer().StartBrowser(); err != nil {
 						m.AddTrace("error", fmt.Sprintf("Browser start failed: %v", err))
+						m.browserReady = false
 						return
 					}
 					m.AddTrace("system", "✓ Browser started (Playwright)")
 				}()
-				m.browserReady = true
 			} else {
 				m.AddTrace("system", "Browser already running")
 			}
@@ -243,6 +246,21 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.AddTrace("system", "✓ Review: action approved")
 				}
 			}
+		case "o":
+			if m.reviewPanel != nil && m.reviewPanel.Visible() {
+				m.reviewPanel.SetScope(computer.ScopeOnce)
+				m.AddTrace("system", "⚙ Review scope: once")
+			}
+		case "s":
+			if m.reviewPanel != nil && m.reviewPanel.Visible() {
+				m.reviewPanel.SetScope(computer.ScopeSession)
+				m.AddTrace("system", "⚙ Review scope: session")
+			}
+		case "p":
+			if m.reviewPanel != nil && m.reviewPanel.Visible() {
+				m.reviewPanel.SetScope(computer.ScopePermanent)
+				m.AddTrace("system", "⚙ Review scope: permanent (trust)")
+			}
 		case "esc":
 			if m.modelBrowserVisible {
 				m.modelBrowserVisible = false
@@ -263,10 +281,25 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+var (
+	lastEventLogModTime time.Time
+	lastEventLogSize    int64
+)
+
 func (m *Model) pollEventLog() {
 	if m.logPath == "" {
 		return
 	}
+	info, err := os.Stat(m.logPath)
+	if err != nil {
+		return
+	}
+	if info.ModTime() == lastEventLogModTime && info.Size() == lastEventLogSize {
+		return
+	}
+	lastEventLogModTime = info.ModTime()
+	lastEventLogSize = info.Size()
+
 	entries, err := persistence.LoadEventLog(m.logPath)
 	if err != nil {
 		return
@@ -369,11 +402,23 @@ func (m *Model) executeCommand() {
 		if reg != nil {
 			modelCount = len(reg.Profiles)
 		}
-		m.AddTrace("system", fmt.Sprintf("═ Models: %d · Active: %s · State: %s · Step: %d · Uptime: %s",
+		budgetRem := 0
+		if m.gateway.Budget() != nil {
+			budgetRem = int(m.gateway.Budget().Remaining())
+		}
+		memSnapshot := ""
+		if m.gateway.Memory() != nil && m.gateway.Memory().Loaded() {
+			memSnapshot = "●"
+		} else {
+			memSnapshot = "○"
+		}
+		m.AddTrace("system", fmt.Sprintf("═ Models: %d · Active: %s · State: %s · Step: %d · Budget: %d · Mem: %s · Uptime: %s",
 			modelCount,
 			m.gateway.ActiveModel(),
 			m.gateway.Machine().State().String(),
 			m.gateway.Machine().Step(),
+			budgetRem,
+			memSnapshot,
 			time.Since(m.startTime).Round(time.Second).String()))
 
 	case strings.HasPrefix(cmd, "/model "):

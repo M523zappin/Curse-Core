@@ -62,6 +62,9 @@ type Gateway struct {
 	sessionID   string
 	startTime   time.Time
 	resumed     bool
+
+	memory      *MemoryStore
+	budget      *engine.IterationBudget
 }
 
 func New(curseDir, configDir string) *Gateway {
@@ -118,6 +121,12 @@ func (g *Gateway) Init(ctx context.Context) error {
 			})
 		}
 	})
+
+	// ── Memory System (frozen-snapshot) ───────────────────
+	g.InitMemory()
+
+	// ── Iteration Budget ──────────────────────────────────
+	g.budget = engine.NewIterationBudget(100)
 
 	// ── Autonomous Architectural Backbone ─────────────────
 	g.InitFleet()
@@ -181,6 +190,24 @@ func (g *Gateway) Init(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+func (g *Gateway) InitMemory() {
+	if g.memory != nil {
+		return
+	}
+	g.memory = NewMemoryStore(g.curseDir)
+	if err := g.memory.Load(); err != nil {
+		g.memory = nil
+	}
+}
+
+func (g *Gateway) Memory() *MemoryStore {
+	return g.memory
+}
+
+func (g *Gateway) Budget() *engine.IterationBudget {
+	return g.budget
 }
 
 func (g *Gateway) InitSkills() {

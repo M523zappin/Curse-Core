@@ -5,6 +5,7 @@ import (
 	"math"
 	"runtime"
 	"sync"
+	"time"
 
 	"github.com/charmbracelet/lipgloss"
 )
@@ -105,10 +106,43 @@ func initSystemSparklines() {
 	})
 }
 
+var (
+	tickMu      sync.Mutex
+	lastTickAt  time.Time
+)
+
+func measureLoad() float64 {
+	tickMu.Lock()
+	defer tickMu.Unlock()
+
+	now := time.Now()
+	if lastTickAt.IsZero() {
+		lastTickAt = now
+		return 0
+	}
+
+	elapsed := now.Sub(lastTickAt)
+	lastTickAt = now
+
+	expected := 200 * time.Millisecond
+	if elapsed < expected {
+		elapsed = expected
+	}
+
+	load := float64(elapsed-expected) / float64(expected)
+	if load < 0 {
+		load = 0
+	}
+	if load > 8 {
+		load = 8
+	}
+	return load
+}
+
 func tickSparklines() {
 	var mem runtime.MemStats
 	runtime.ReadMemStats(&mem)
-	systemSparklines.CPU.Push(float64(runtime.NumCPU()))
+	systemSparklines.CPU.Push(measureLoad())
 	systemSparklines.Mem.Push(float64(mem.Alloc / 1024 / 1024))
 	systemSparklines.Goro.Push(float64(runtime.NumGoroutine()))
 }

@@ -121,7 +121,9 @@ func (rp *ReviewPanelModel) View(width int, frame int) string {
 		if selected {
 			selDot = StatusDot(DotProcessing, frame)
 		}
+		scopeHint := "  o=once  s=session  p=permanent"
 		card.WriteString(lipgloss.NewStyle().Foreground(ColorWarning).Render(fmt.Sprintf("  %s ↑↓  Enter: approve  Esc: reject", selDot)))
+		card.WriteString("\n" + lipgloss.NewStyle().Foreground(ColorFgSubtle).Render(scopeHint))
 
 		cardStyle := lipgloss.NewStyle().
 			Border(lipgloss.NormalBorder()).
@@ -184,6 +186,8 @@ func (rp *ReviewPanelModel) RejectSelected() error {
 func (rp *ReviewPanelModel) PendingCount() int {
 	return len(rp.pending)
 }
+
+func (rp *ReviewPanelModel) SetScope(s computer.ApprovalScope) {}
 
 func (rp *ReviewPanelModel) Visible() bool {
 	return rp.visible

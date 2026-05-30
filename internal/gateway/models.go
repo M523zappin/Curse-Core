@@ -67,18 +67,21 @@ func (reg *ModelRegistry) ActiveProfile() (ModelProfile, bool) {
 }
 
 func resolveEnv(s string) string {
-	if !strings.Contains(s, "${") {
-		return s
+	for strings.Contains(s, "${") {
+		start := strings.Index(s, "${")
+		rest := s[start+2:]
+		end := strings.Index(rest, "}")
+		if end == -1 {
+			break
+		}
+		end += start + 2
+		varName := s[start+2 : end]
+		val := os.Getenv(varName)
+		if val == "" {
+			s = s[:start] + s[end+1:]
+		} else {
+			s = s[:start] + val + s[end+1:]
+		}
 	}
-	start := strings.Index(s, "${")
-	end := strings.Index(s, "}")
-	if start == -1 || end == -1 || end <= start {
-		return s
-	}
-	varName := s[start+2 : end]
-	val := os.Getenv(varName)
-	if val == "" {
-		return s[:start] + s[end+1:]
-	}
-	return s[:start] + val + s[end+1:]
+	return s
 }

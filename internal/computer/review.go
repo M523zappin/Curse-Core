@@ -11,12 +11,13 @@ const (
 )
 
 type ReviewManager struct {
-	mu            sync.RWMutex
-	pending       map[string]*ReviewRequest
-	history       []ReviewRecord
-	callback      func(ReviewRequest)
-	autoApprove   bool
-	maxBufferSize int
+	mu               sync.RWMutex
+	pending          map[string]*ReviewRequest
+	history          []ReviewRecord
+	callback         func(ReviewRequest)
+	autoApprove      bool
+	autoApproveReason string
+	maxBufferSize    int
 }
 
 type ReviewRecord struct {
@@ -75,9 +76,20 @@ func (rm *ReviewManager) Resolve(actionID string, decision ReviewDecision) error
 	if len(rm.history) > rm.maxBufferSize {
 		rm.history = rm.history[1:]
 	}
+
+	if decision.Scope == ScopePermanent {
+		rm.autoApprove = true
+		rm.autoApproveReason = decision.Reason
+	}
 	rm.mu.Unlock()
 
 	return nil
+}
+
+func (rm *ReviewManager) AutoApproveReason() string {
+	rm.mu.RLock()
+	defer rm.mu.RUnlock()
+	return rm.autoApproveReason
 }
 
 func (rm *ReviewManager) SetCallback(cb func(ReviewRequest)) {
