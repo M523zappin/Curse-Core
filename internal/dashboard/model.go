@@ -1,6 +1,7 @@
 package dashboard
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -18,6 +19,15 @@ import (
 )
 
 type animTick time.Time
+
+type BootPhase int
+
+const (
+	BootPhaseScan   BootPhase = iota
+	BootPhaseDetect
+	BootPhaseAwaken
+	BootPhaseActive
+)
 
 type Model struct {
 	gateway      *gateway.Gateway
@@ -45,7 +55,10 @@ type Model struct {
 	commandMode   bool
 	commandBuffer string
 
-	traceMu sync.Mutex
+	traceMu  sync.Mutex
+	bootTick int
+	detectedTools []string
+	bootPhaseLogged BootPhase
 }
 
 type TraceEntry struct {
@@ -57,6 +70,16 @@ type TraceEntry struct {
 var version = "v1.0.0"
 
 func NewModel(gw *gateway.Gateway) *Model {
+	tools := gateway.DetectLocalTools(context.Background())
+	detected := make([]string, 0, len(tools))
+	for _, t := range tools {
+		label := t.Name
+		if t.Version != "" {
+			label += " " + t.Version
+		}
+		detected = append(detected, label)
+	}
+
 	m := &Model{
 		gateway:      gw,
 		traceItems:   make([]TraceEntry, 0),
@@ -66,6 +89,7 @@ func NewModel(gw *gateway.Gateway) *Model {
 		maxVisible:   25,
 		lastSeqRead:  0,
 		startTime:    time.Now(),
+		detectedTools: detected,
 	}
 
 	if gw.ReviewManager() != nil {
@@ -89,21 +113,155 @@ func (m *Model) Init() tea.Cmd {
 
 type splashMsg struct{}
 
-func (m *Model) showSplash(ready bool) {
-	if ready {
+func (m *Model) boot() BootPhase {
+	t := m.bootTick
+	switch {
+	case t < 20:
+		return BootPhaseScan
+	case t < 40:
+		return BootPhaseDetect
+	case t < 60:
+		return BootPhaseAwaken
+	default:
+		return BootPhaseActive
+	}
+}
+
+func (m *Model) bootView(width int) string {
+	if width < 60 {
+		width = 60
+	}
+	f := m.animFrame
+	phase := m.boot()
+
+	accent := PulseColor(f)
+	dimAccent := ColorAccentDim
+
+	switch phase {
+	case BootPhaseScan:
+		scanPos := (m.bootTick * 2) % (width - 8)
+		scanLine := strings.Repeat(" ", scanPos) + "█" + strings.Repeat(" ", (width-8)-scanPos-1)
+
+		barFull := m.bootTick * (width - 12) / 20
+		if barFull > width-12 {
+			barFull = width - 12
+		}
+		loadingBar := "[" + strings.Repeat("█", barFull) + strings.Repeat("░", (width-12)-barFull) + "]"
+
+		dots := strings.Repeat(".", (m.bootTick%8)+1)
+		lines := []string{
+			"",
+			lipgloss.NewStyle().Foreground(dimAccent).Width(width).Align(lipgloss.Center).Render("╔" + strings.Repeat("═", width-4) + "╗"),
+			lipgloss.NewStyle().Foreground(accent).Bold(true).Width(width).Align(lipgloss.Center).Render("   C U R S E"),
+			lipgloss.NewStyle().Foreground(ColorFgSubtle).Width(width).Align(lipgloss.Center).Render("   Cognitive Unified Runtime System Entity"),
+			lipgloss.NewStyle().Foreground(ColorFgInactive).Width(width).Align(lipgloss.Center).Render(""),
+			lipgloss.NewStyle().Foreground(ColorFgSubtle).Width(width).Align(lipgloss.Center).Render("   Scanning subsystems" + dots),
+			lipgloss.NewStyle().Foreground(ColorSpiral).Width(width).Align(lipgloss.Center).Render("   " + loadingBar),
+			lipgloss.NewStyle().Foreground(ColorFgInactive).Width(width).Align(lipgloss.Center).Render(""),
+			lipgloss.NewStyle().Foreground(ColorToxic).Width(width).Align(lipgloss.Center).Render("   " + scanLine),
+			"",
+			lipgloss.NewStyle().Foreground(dimAccent).Width(width).Align(lipgloss.Center).Render("╚" + strings.Repeat("═", width-4) + "╝"),
+		}
+		return strings.Join(lines, "\n")
+
+	case BootPhaseDetect:
+		barFull := (m.bootTick - 20) * (width - 12) / 20
+		if barFull > width-12 {
+			barFull = width - 12
+		}
+		loadingBar := "[" + strings.Repeat("█", barFull) + strings.Repeat("░", (width-12)-barFull) + "]"
+
+		var detectLines []string
+		detectLines = append(detectLines, "",
+			lipgloss.NewStyle().Foreground(dimAccent).Width(width).Align(lipgloss.Center).Render("╔"+strings.Repeat("═", width-4)+"╗"),
+			lipgloss.NewStyle().Foreground(accent).Bold(true).Width(width).Align(lipgloss.Center).Render("   SYSTEM DETECTION"),
+			"")
+
+		visibleCount := (m.bootTick - 20) / 2
+		if visibleCount > len(m.detectedTools) {
+			visibleCount = len(m.detectedTools)
+		}
+		for i, tool := range m.detectedTools {
+			if i >= visibleCount {
+				break
+			}
+			check := lipgloss.NewStyle().Foreground(ColorSuccess).Render("✓")
+			toolStr := lipgloss.NewStyle().Foreground(ColorFg).Render(tool)
+			detectLines = append(detectLines,
+				lipgloss.NewStyle().Width(width).Align(lipgloss.Center).Render(fmt.Sprintf("   %s %s", check, toolStr)))
+		}
+		if visibleCount < len(m.detectedTools) {
+			detectLines = append(detectLines,
+				lipgloss.NewStyle().Foreground(ColorFgInactive).Width(width).Align(lipgloss.Center).Render("   ... scanning ..."))
+		}
+		detectLines = append(detectLines, "",
+			lipgloss.NewStyle().Foreground(ColorSpiral).Width(width).Align(lipgloss.Center).Render("   "+loadingBar),
+			lipgloss.NewStyle().Foreground(dimAccent).Width(width).Align(lipgloss.Center).Render("╚"+strings.Repeat("═", width-4)+"╝"))
+		return strings.Join(detectLines, "\n")
+
+	case BootPhaseAwaken:
+		eye := EntityMark(f)
+		eyeBlock := strings.Join(eye, "\n")
+		intensity := (m.bootTick - 40) * 5
+		if intensity > 100 {
+			intensity = 100
+		}
+		glow := ""
+		if intensity > 50 {
+			glow = lipgloss.NewStyle().Foreground(ColorWarning).Render(" ◈ ENTITY CONSCIOUSNESS ESTABLISHED ◈ ")
+		} else {
+			pct := lipgloss.NewStyle().Foreground(ColorSpiral).Render(fmt.Sprintf(" %d%%", intensity*2))
+			glow = lipgloss.NewStyle().Foreground(ColorFgSubtle).Render(" Awakening") + pct
+		}
+		lines := []string{
+			"",
+			lipgloss.NewStyle().Foreground(dimAccent).Width(width).Align(lipgloss.Center).Render("╔"+strings.Repeat("═", width-4)+"╗"),
+			"",
+			lipgloss.NewStyle().Foreground(accent).Width(width).Align(lipgloss.Center).Render(eyeBlock),
+			"",
+			lipgloss.NewStyle().Foreground(accent).Bold(true).Width(width).Align(lipgloss.Center).Render(strings.Join(CurseTitle, "\n")),
+			"",
+			lipgloss.NewStyle().Width(width).Align(lipgloss.Center).Render(glow),
+			"",
+			lipgloss.NewStyle().Foreground(dimAccent).Width(width).Align(lipgloss.Center).Render("╚"+strings.Repeat("═", width-4)+"╝"),
+		}
+		return strings.Join(lines, "\n")
+
+	default:
+		return ""
+	}
+}
+
+func (m *Model) showSplash() {
+	if m.boot() == BootPhaseActive {
 		return
 	}
-	m.AddTrace("entity", "██████████████████████████████████████████████████████████")
-	m.AddTrace("entity", "  ██  ENTITY ACTIVE  ██")
-	m.AddTrace("entity", "  ████████████████████████████████████████████████████████")
-	m.AddTrace("entity", "  ██  cortex » 8-state machine · SHA256-chain memory")
-	m.AddTrace("entity", "  ██  agents » 8 specialized minds · priority dispatch")
-	m.AddTrace("entity", "  ██  senses » Playwright browser · desktop OS · vision")
-	m.AddTrace("entity", "  ██  reflex » self-healing loop · root-cause analysis")
-	m.AddTrace("entity", "  ██  memory » persistent knowledge index · ADR journal")
-	m.AddTrace("entity", "  ██  language » LSP diagnostics · gopls · typescript")
-	m.AddTrace("entity", "  ██  ethics » HITL review · constitution guardrails")
-	m.AddTrace("system", "  ██  awaiting directive · Ctrl+B browse · Ctrl+P pause")
+	phase := m.boot()
+	if phase == m.bootPhaseLogged {
+		return
+	}
+	m.bootPhaseLogged = phase
+
+	switch phase {
+	case BootPhaseScan:
+		m.AddTrace("system", "⟐ scanning subsystems...")
+	case BootPhaseDetect:
+		for _, tool := range m.detectedTools {
+			m.AddTrace("system", fmt.Sprintf("✓ %s", tool))
+		}
+		m.AddTrace("entity", "██████████████████████████████████████████████████████████")
+		m.AddTrace("entity", "  ◈  ESTABLISHING ENTITY CONSCIOUSNESS...")
+	case BootPhaseAwaken:
+		m.AddTrace("entity", "  ██  cortex » 8-state machine  ·  SHA256-chain memory")
+		m.AddTrace("entity", "  ██  agents » 8 specialized minds  ·  priority dispatch")
+		m.AddTrace("entity", "  ██  senses » Playwright browser  ·  desktop  ·  vision")
+		m.AddTrace("entity", "  ██  reflex » self-healing loop  ·  root-cause analysis")
+		m.AddTrace("entity", "  ██  memory » persistent knowledge index  ·  ADR journal")
+		m.AddTrace("entity", "  ██  language » LSP diagnostics  ·  gopls  ·  typescript")
+		m.AddTrace("entity", "  ██  ethics » HITL review  ·  constitution guardrails")
+		m.AddTrace("system", "  ◈  ENTITY ACTIVE  ·  awaiting directive")
+		m.AddTrace("system", "  ◈  / cmd  ·  Ctrl+M model browser  ·  Ctrl+P pause")
+	}
 }
 
 func (m *Model) animTicker() tea.Cmd {
@@ -134,10 +292,14 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.reviewPanel != nil {
 			m.reviewPanel.Update(msg)
 		}
+		if m.boot() != BootPhaseActive {
+			m.bootTick++
+			m.showSplash()
+		}
 		return m, m.animTicker()
 
 	case splashMsg:
-		m.showSplash(true)
+		m.bootTick = 0
 
 	case tea.KeyMsg:
 		// ── Command mode takes priority ──
@@ -567,11 +729,11 @@ func (m *Model) renderModelBrowser(overlayWidth int) string {
 func (m *Model) View() string {
 	f := m.animFrame
 
-	if !m.ready || len(m.traceItems) < 2 {
-		m.showSplash(m.ready)
-		if !m.ready {
-			return SplashScreen(m.width, f)
-		}
+	if !m.ready {
+		return ""
+	}
+	if m.boot() != BootPhaseActive {
+		return m.bootView(m.width)
 	}
 
 	state := m.gateway.Machine().State().String()
