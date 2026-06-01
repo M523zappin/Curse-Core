@@ -8,11 +8,11 @@
 </p>
 
 <p align="center">
-  <a href="#install">Install</a> •
-  <a href="#quick-start">Quick Start</a> •
-  <a href="#interface">Interface</a> •
-  <a href="#adapters">Adapters</a> •
-  <a href="#consciousness">Consciousness</a> •
+  <a href="#install">Install</a> ·
+  <a href="#quick-start">Quick Start</a> ·
+  <a href="#interface">Interface</a> ·
+  <a href="#adapters">Adapters</a> ·
+  <a href="#consciousness">Consciousness</a> ·
   <a href="#architecture">Architecture</a>
 </p>
 
@@ -26,16 +26,20 @@
 
 ---
 
-## ✨ What's New - Better Than Claude Code
+## What's New
 
-### 🎯 100% Offline - No API Keys, No Internet, No Setup!
-- **SmartCode Adapter** - Built-in intelligent code generation with 32 code templates
-- **Zero External Dependencies** - Works completely autonomously
-- **Instant Code Generation** - Just install and start coding!
-- **No Paywalls** - Everything is included, nothing is locked behind a paywall
+### 100% Offline - No API Keys, No Internet, No Setup!
 
-### 🚀 Instant Code Generation (Works Offline!)
-```text
+| Feature | Description |
+|---------|-------------|
+| **SmartCode Adapter** | 32 built-in code templates for instant generation |
+| **Zero Dependencies** | Works completely autonomously |
+| **Instant Code** | Just install and start coding! |
+| **No Paywalls** | Everything included, nothing locked |
+
+### Works Offline!
+
+```
 >>> create a REST API handler for users in Go
 >>> add unit tests for authentication service  
 >>> implement middleware for JWT validation
@@ -46,30 +50,18 @@
 >>> generate a Dockerfile for my Go app
 ```
 
-### 🎨 Enhanced Terminal UI (Better Than Claude Code!)
+### Enhanced Terminal UI
+
 | Feature | Description |
 |---------|-------------|
-| **Ctrl+K Command Palette** | VSCode-style fuzzy finder for all commands |
-| **Interactive File Browser** | Tree view with git status icons 📂📁 |
-| **Animated Progress** | Multi-step progress with sparklines ▂▄▆ |
-| **Split View** | Code + chat side by side |
-| **Diff Viewer** | Side-by-side code comparison |
-| **Syntax Highlighting** | Color-coded code with themes |
-| **Notifications** | Toast notifications for actions ✓ ⚠ ✗ |
-| **Real-time Sparklines** | CPU/Memory/Network visualizations |
-
-### ⌨️ Keybindings
-
-| Key | Action |
-|-----|--------|
-| `Ctrl+K` | Open command palette (fuzzy search) |
-| `Tab` | Cycle through models |
-| `Ctrl+M` | Model browser overlay |
-| `Ctrl+P` | Pause/Resume execution |
-| `↑/↓` | Navigate lists |
-| `/list` | Show all models |
-| `/stats` | System info |
-| `/help` | Show help |
+| `Ctrl+K` Command Palette | VSCode-style fuzzy command finder |
+| Interactive File Browser | Tree view with git status (files/folders) |
+| Animated Progress | Multi-step progress with sparklines |
+| Split View | Code + chat side by side |
+| Diff Viewer | Side-by-side code comparison |
+| Syntax Highlighting | Color-coded for Go, Python, JS/TS |
+| Toast Notifications | Action feedback indicators |
+| Real-time Sparklines | CPU/Memory visualizations |
 
 ---
 
@@ -114,14 +106,14 @@ curse
 ### Natural Language First
 CURSE is designed for direct interaction. Just type your directive into the prompt.
 
-```text
+```
 >>> refactor this server to use context deadline instead of hardcoded timeouts
 ```
 
 ### System Commands
 Prefix your input with `/` to execute direct system commands:
 
-```text
+```
 /list             Browse all available models
 /stats            Display system telemetry
 /init             Generate project context file
@@ -144,7 +136,7 @@ Prefix your input with `/` to execute direct system commands:
 | `Ctrl+N` | Clear input buffer |
 | `Ctrl+P` | Pause / resume execution |
 | `Ctrl+S` | Shutdown |
-| `↑` / `↓` | Navigate browser or review panel |
+| Up / Down | Navigate browser or review panel |
 | `Enter` | Execute command / Select / Approve |
 | `Esc` | Close browser / Reject review action |
 | `o` | Set approval scope to Once |
@@ -172,7 +164,7 @@ CURSE includes 15 model adapters. **SmartCode is the default and works 100% offl
 
 | Adapter | Type | Description |
 |---|---|---|
-| **smartcode** | AI Brain | ✨ 32 code templates, 100% offline, zero dependencies |
+| **smartcode** | AI Brain | 32 code templates, 100% offline, zero dependencies |
 | **codex** | AST | Go code analysis via `go/ast` |
 | **grep** | Search | Full-text codebase search |
 | **eval** | Math | Pure Go math evaluator |
@@ -203,12 +195,12 @@ CURSE maintains a persistent consciousness engine — a time-travel journal and 
 
 | Score | Stage | Characteristics |
 |---|---|---|
-| 0–9 | Embryonic | Initial thoughts, learning fundamentals |
-| 10–24 | Nascent | Pattern recognition begins |
-| 25–44 | Awakening | Convention understanding develops |
-| 45–64 | Conscious | Informed decision-making |
-| 65–84 | Sentient | Anticipation of needs |
-| 85–100 | Transcendent | Autonomous operation |
+| 0-9 | Embryonic | Initial thoughts, learning fundamentals |
+| 10-24 | Nascent | Pattern recognition begins |
+| 25-44 | Awakening | Convention understanding develops |
+| 45-64 | Conscious | Informed decision-making |
+| 65-84 | Sentient | Anticipation of needs |
+| 85-100 | Transcendent | Autonomous operation |
 
 ---
 
