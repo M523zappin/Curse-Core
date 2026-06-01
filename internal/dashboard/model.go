@@ -945,9 +945,6 @@ func (m *Model) View() string {
 
 	return content + "\n"
 }
-	}
-	return content + "\n"
-}
 
 func (m *Model) renderInputBar(width int) string {
 	var prefix string
