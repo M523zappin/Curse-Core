@@ -19,7 +19,7 @@ type AutoDiscovery struct {
 	codebaseTypes []string
 	patterns      map[string]*SkillPattern
 	mu            sync.RWMutex
-	scanner       *CodebaseScanner
+	codebaseScanner *CodebaseScanner
 }
 
 // SkillPattern represents a discovered code pattern
@@ -72,7 +72,7 @@ func (a *AutoDiscovery) Discover(ctx context.Context) ([]*SkillPattern, error) {
 	defer a.mu.Unlock()
 
 	// Scan codebase first
-	scan, err := a.scanner.Scan(ctx)
+	scan, err := a.codebaseScanner.Scan(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -86,8 +86,8 @@ func (a *AutoDiscovery) Discover(ctx context.Context) ([]*SkillPattern, error) {
 	return suggestions, nil
 }
 
-func (a *AutoDiscovery) scanner() *CodebaseScanner {
-	return a.scanner
+func (a *AutoDiscovery) GetScanner() *CodebaseScanner {
+	return a.codebaseScanner
 }
 
 // Scan performs a comprehensive codebase scan
