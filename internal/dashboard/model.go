@@ -292,225 +292,132 @@ func (m *Model) animTicker() tea.Cmd {
 }
 
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	switch msg := msg.(type) {
-	case tea.WindowSizeMsg:
-		m.width = msg.Width
-		m.height = msg.Height
-		if !m.ready {
-			m.ready = true
-		}
-		m.maxVisible = (msg.Height - 12) / 2
-		if m.maxVisible < 8 {
-			m.maxVisible = 8
-		}
-
-	case animTick:
-		m.animFrame++
-		m.pollEventLog()
-		m.pollCheckpoint()
-		initSystemSparklines()
-		tickSparklines()
-		if m.reviewPanel != nil {
-			m.reviewPanel.Update(msg)
-		}
-		if m.boot() != BootPhaseActive {
-			m.bootTick++
-			m.showSplash()
-		}
-		return m, m.animTicker()
-
-	case splashMsg:
-		m.bootTick = 0
-
-	case tea.KeyMsg:
-		switch msg.String() {
-		case "ctrl+c", "ctrl+s":
-			m.quitting = true
-			m.gateway.Machine().Send(statemachine.EventShutdownRequested)
-			return m, tea.Quit
-		case "tab":
-			m.cycleModel(1)
-		case "shift+tab":
-			m.cycleModel(-1)
-		case "up":
-	if m.modelBrowserVisible {
-		browserOverlay := m.renderModelBrowser(m.width - 4)
-		if browserOverlay != "" {
-			overlayBox := lipgloss.NewStyle().
-			Width(m.width).
-			Align(lipgloss.Center).
-			Render(browserOverlay)
-		content = lipgloss.JoinVertical(lipgloss.Top, content, "\n\n", overlayBox)
-		}
-	}
-
-	// ✨ NEW: Command Palette Overlay (Ctrl+K)
-	if m.commandPalette != nil && m.commandPalette.visible {
-		m.commandPalette.width = m.width - 20
-		m.commandPalette.height = m.height - 10
-		paletteView := m.commandPalette.View()
-		if paletteView != "" {
-			paletteBox := lipgloss.NewStyle().
-				Width(m.width - 16).
-				Align(lipgloss.Center).
-				MarginTop(5).
-				Render(paletteView)
-		content = lipgloss.JoinVertical(lipgloss.Top, content, "\n", paletteBox)
-		}
-	}
-
-	return content + "\n"
+switch msg := msg.(type) {
+case tea.WindowSizeMsg:
+m.width = msg.Width
+m.height = msg.Height
+if !m.ready {
+m.ready = true
 }
-			} else if m.reviewPanel != nil && m.reviewPanel.Visible() {
-				m.reviewPanel.SelectPrev()
-			}
-		case "down":
-	if m.modelBrowserVisible {
-		browserOverlay := m.renderModelBrowser(m.width - 4)
-		if browserOverlay != "" {
-			overlayBox := lipgloss.NewStyle().
-			Width(m.width).
-			Align(lipgloss.Center).
-			Render(browserOverlay)
-		content = lipgloss.JoinVertical(lipgloss.Top, content, "\n\n", overlayBox)
-		}
-	}
-
-	// ✨ NEW: Command Palette Overlay (Ctrl+K)
-	if m.commandPalette != nil && m.commandPalette.visible {
-		m.commandPalette.width = m.width - 20
-		m.commandPalette.height = m.height - 10
-		paletteView := m.commandPalette.View()
-		if paletteView != "" {
-			paletteBox := lipgloss.NewStyle().
-				Width(m.width - 16).
-				Align(lipgloss.Center).
-				MarginTop(5).
-				Render(paletteView)
-		content = lipgloss.JoinVertical(lipgloss.Top, content, "\n", paletteBox)
-		}
-	}
-
-	return content + "\n"
+m.maxVisible = (msg.Height - 12) / 2
+if m.maxVisible < 8 {
+m.maxVisible = 8
 }
-			} else if m.reviewPanel != nil && m.reviewPanel.Visible() {
-				m.reviewPanel.SelectNext()
-			}
-		case "enter":
-	if m.modelBrowserVisible {
-		browserOverlay := m.renderModelBrowser(m.width - 4)
-		if browserOverlay != "" {
-			overlayBox := lipgloss.NewStyle().
-			Width(m.width).
-			Align(lipgloss.Center).
-			Render(browserOverlay)
-		content = lipgloss.JoinVertical(lipgloss.Top, content, "\n\n", overlayBox)
-		}
-	}
 
-	// ✨ NEW: Command Palette Overlay (Ctrl+K)
-	if m.commandPalette != nil && m.commandPalette.visible {
-		m.commandPalette.width = m.width - 20
-		m.commandPalette.height = m.height - 10
-		paletteView := m.commandPalette.View()
-		if paletteView != "" {
-			paletteBox := lipgloss.NewStyle().
-				Width(m.width - 16).
-				Align(lipgloss.Center).
-				MarginTop(5).
-				Render(paletteView)
-		content = lipgloss.JoinVertical(lipgloss.Top, content, "\n", paletteBox)
-		}
-	}
-
-	return content + "\n"
+case animTick:
+m.animFrame++
+m.pollEventLog()
+m.pollCheckpoint()
+initSystemSparklines()
+tickSparklines()
+if m.reviewPanel != nil {
+m.reviewPanel.Update(msg)
 }
-					}
-					m.modelBrowserVisible = false
-				}
-			} else if m.reviewPanel != nil && m.reviewPanel.Visible() {
-				if err := m.reviewPanel.ApproveSelected(); err == nil {
-					m.AddTrace("system", "✓ Review: action approved")
-				}
-			} else {
-				m.executeUnifiedInput()
-			}
-		case "o":
-			if m.reviewPanel != nil && m.reviewPanel.Visible() {
-				m.reviewPanel.SetScope(computer.ScopeOnce)
-				m.AddTrace("system", "⚙ Review scope: once")
-			}
-		case "s":
-			if m.reviewPanel != nil && m.reviewPanel.Visible() {
-				m.reviewPanel.SetScope(computer.ScopeSession)
-				m.AddTrace("system", "⚙ Review scope: session")
-			}
-		case "p":
-			if m.reviewPanel != nil && m.reviewPanel.Visible() {
-				m.reviewPanel.SetScope(computer.ScopePermanent)
-				m.AddTrace("system", "⚙ Review scope: permanent (trust)")
-			}
-		case "esc":
-	if m.modelBrowserVisible {
-		browserOverlay := m.renderModelBrowser(m.width - 4)
-		if browserOverlay != "" {
-			overlayBox := lipgloss.NewStyle().
-			Width(m.width).
-			Align(lipgloss.Center).
-			Render(browserOverlay)
-		content = lipgloss.JoinVertical(lipgloss.Top, content, "\n\n", overlayBox)
-		}
-	}
-
-	// ✨ NEW: Command Palette Overlay (Ctrl+K)
-	if m.commandPalette != nil && m.commandPalette.visible {
-		m.commandPalette.width = m.width - 20
-		m.commandPalette.height = m.height - 10
-		paletteView := m.commandPalette.View()
-		if paletteView != "" {
-			paletteBox := lipgloss.NewStyle().
-				Width(m.width - 16).
-				Align(lipgloss.Center).
-				MarginTop(5).
-				Render(paletteView)
-		content = lipgloss.JoinVertical(lipgloss.Top, content, "\n", paletteBox)
-		}
-	}
-
-	return content + "\n"
+if m.boot() != BootPhaseActive {
+m.bootTick++
+m.showSplash()
 }
-			}
-		case "q":
-			if m.paused {
-				m.quitting = true
-				return m, tea.Quit
-			}
-		case "ctrl+n":
-			m.inputBuffer = ""
-		case "ctrl+m":
-			m.toggleModelBrowser()
-		case "ctrl+k":
-			if m.commandPalette != nil {
-				m.commandPalette.Toggle()
-				if m.commandPalette.visible {
-					m.AddTrace("system", "🔍 Command palette opened")
-				}
-			}
-		case "backspace":
-			if len(m.inputBuffer) > 0 {
-				m.inputBuffer = m.inputBuffer[:len(m.inputBuffer)-1]
-			}
-		default:
-			if len(msg.String()) == 1 && msg.String()[0] >= 32 {
-				m.inputBuffer += msg.String()
-			}
-		}
-		m.missionQueue.Update(msg)
-		m.systemStatus.Update(msg)
-		return m, nil
-		}
-	}
+return m, m.animTicker()
+
+case splashMsg:
+m.bootTick = 0
+
+case tea.KeyMsg:
+switch msg.String() {
+case "ctrl+c", "ctrl+s":
+m.quitting = true
+m.gateway.Machine().Send(statemachine.EventShutdownRequested)
+return m, tea.Quit
+case "tab":
+m.cycleModel(1)
+case "shift+tab":
+m.cycleModel(-1)
+case "up":
+if m.modelBrowserVisible {
+m.modelBrowserIdx--
+if m.modelBrowserIdx < 0 {
+m.modelBrowserIdx = len(m.modelBrowserList) - 1
 }
+} else if m.reviewPanel != nil && m.reviewPanel.Visible() {
+m.reviewPanel.SelectPrev()
+}
+case "down":
+if m.modelBrowserVisible {
+m.modelBrowserIdx++
+if m.modelBrowserIdx >= len(m.modelBrowserList) {
+m.modelBrowserIdx = 0
+}
+} else if m.reviewPanel != nil && m.reviewPanel.Visible() {
+m.reviewPanel.SelectNext()
+}
+case "enter":
+if m.modelBrowserVisible {
+if m.modelBrowserIdx >= 0 && m.modelBrowserIdx < len(m.modelBrowserList) {
+modelName := m.modelBrowserList[m.modelBrowserIdx]
+if reg := m.gateway.Registry(); reg != nil {
+reg.SetActive(modelName)
+m.AddTrace("system", "Model: "+modelName)
+}
+m.modelBrowserVisible = false
+}
+} else if m.reviewPanel != nil && m.reviewPanel.Visible() {
+if err := m.reviewPanel.ApproveSelected(); err == nil {
+m.AddTrace("system", "Review: action approved")
+}
+} else {
+m.executeUnifiedInput()
+}
+case "o":
+if m.reviewPanel != nil && m.reviewPanel.Visible() {
+m.reviewPanel.SetScope(computer.ScopeOnce)
+m.AddTrace("system", "Review scope: once")
+}
+case "s":
+if m.reviewPanel != nil && m.reviewPanel.Visible() {
+m.reviewPanel.SetScope(computer.ScopeSession)
+m.AddTrace("system", "Review scope: session")
+}
+case "p":
+if m.reviewPanel != nil && m.reviewPanel.Visible() {
+m.reviewPanel.SetScope(computer.ScopePermanent)
+m.AddTrace("system", "Review scope: permanent (trust)")
+}
+case "esc":
+if m.modelBrowserVisible {
+m.modelBrowserVisible = false
+}
+case "q":
+if m.paused {
+m.quitting = true
+return m, tea.Quit
+}
+case "ctrl+n":
+m.inputBuffer = ""
+case "ctrl+m":
+m.toggleModelBrowser()
+case "ctrl+k":
+if m.commandPalette != nil {
+m.commandPalette.Toggle()
+if m.commandPalette.visible {
+m.AddTrace("system", "Command palette opened")
+}
+}
+case "backspace":
+if len(m.inputBuffer) > 0 {
+m.inputBuffer = m.inputBuffer[:len(m.inputBuffer)-1]
+}
+default:
+if len(msg.String()) == 1 && msg.String()[0] >= 32 {
+m.inputBuffer += msg.String()
+}
+}
+m.missionQueue.Update(msg)
+m.systemStatus.Update(msg)
+return m, nil
+}
+return m, nil
+}
+
 
 func (m *Model) pollEventLog() {
 	if m.logPath == "" {
@@ -768,34 +675,6 @@ func (m *Model) executeUnifiedInput() {
 }
 
 func (m *Model) toggleModelBrowser() {
-	if m.modelBrowserVisible {
-		browserOverlay := m.renderModelBrowser(m.width - 4)
-		if browserOverlay != "" {
-			overlayBox := lipgloss.NewStyle().
-			Width(m.width).
-			Align(lipgloss.Center).
-			Render(browserOverlay)
-		content = lipgloss.JoinVertical(lipgloss.Top, content, "\n\n", overlayBox)
-		}
-	}
-
-	// ✨ NEW: Command Palette Overlay (Ctrl+K)
-	if m.commandPalette != nil && m.commandPalette.visible {
-		m.commandPalette.width = m.width - 20
-		m.commandPalette.height = m.height - 10
-		paletteView := m.commandPalette.View()
-		if paletteView != "" {
-			paletteBox := lipgloss.NewStyle().
-				Width(m.width - 16).
-				Align(lipgloss.Center).
-				MarginTop(5).
-				Render(paletteView)
-		content = lipgloss.JoinVertical(lipgloss.Top, content, "\n", paletteBox)
-		}
-	}
-
-	return content + "\n"
-}
 	if m.gateway.Registry() != nil {
 		reg := m.gateway.Registry()
 		m.modelBrowserList = make([]string, 0, len(reg.Profiles))
@@ -810,8 +689,8 @@ func (m *Model) toggleModelBrowser() {
 				break
 			}
 		}
-		m.modelBrowserVisible = true
 	}
+	m.modelBrowserVisible = !m.modelBrowserVisible
 }
 
 func (m *Model) cycleModel(direction int) {
