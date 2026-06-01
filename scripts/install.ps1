@@ -1,162 +1,81 @@
-﻿#requires -Version 5.1
-<#
-.SYNOPSIS
-  CURSE -- Autonomous Installer (Windows)
-.DESCRIPTION
-  No API keys needed. No forced cloud auth. Just run.
-  Run:  iex "& { $(irm https://raw.githubusercontent.com/M523zappin/Curse-Core/master/install.ps1) }"
-#>
+# CURSE - Windows Installer (PowerShell)
+# Just run this ONE command in PowerShell:
+#   iex "& { $(irm https://curse.sh/install.ps1) }"
 
-$ErrorActionPreference = 'Stop'
-$ProgressPreference = 'SilentlyContinue'
+$CYAN = "Cyan"
+$GREEN = "Green"
+$RED = "Red"
+$YELLOW = "Yellow"
 
-$Repo = 'M523zappin/Curse-Core'
-$Branch = 'master'
-$CurseHome = Join-Path $env:USERPROFILE 'curse'
-$BinDir = Join-Path $env:USERPROFILE '.local' 'bin'
-$TempDir = Join-Path $env:TEMP 'curse-install'
+Write-Host ""
+Write-Host "╔══════════════════════════════════════════╗" -ForegroundColor $CYAN
+Write-Host "║         C U R S E  Installer             ║" -ForegroundColor $CYAN
+Write-Host "║    Zero API Keys • 100% Offline Ready   ║" -ForegroundColor $CYAN
+Write-Host "╚══════════════════════════════════════════╝" -ForegroundColor $CYAN
+Write-Host ""
 
-New-Item -ItemType Directory -Path $TempDir -Force | Out-Null
-
-function Write-Step($msg) { Write-Host "  -> $msg" -ForegroundColor Cyan }
-function Write-OK($msg)   { Write-Host "  [+] $msg" -ForegroundColor Green }
-
-Clear-Host
-Write-Host @"
-
-  ================================
-  :    C U R S E                 :
-  :  Autonomous Installer        :
-  :  Zero API Keys               :
-  ================================
-
-"@ -ForegroundColor Cyan
-
-# ---- Dependency: git ------------------------------------------
-$haveGit = (Get-Command git -ErrorAction SilentlyContinue) -ne $null
-if (-not $haveGit) {
-    Write-Step "Installing Git for Windows..."
-    $gitUrl = 'https://github.com/git-for-windows/git/releases/latest/download/Git-2.48.1-64-bit.exe'
-    $gitInstaller = Join-Path $TempDir 'git-installer.exe'
-    try {
-        Invoke-WebRequest -Uri $gitUrl -OutFile $gitInstaller -UseBasicParsing
-        Start-Process -Wait -FilePath $gitInstaller -ArgumentList '/VERYSILENT /NORESTART /NOCANCEL /SP- /SUPPRESSMSGBOXES /DIR="C:\Program Files\Git"'
-        $env:Path = "C:\Program Files\Git\cmd;$env:Path"
-        Write-OK 'Git installed'
-    } catch {
-        Write-Host "  [!] Failed to install Git: $_" -ForegroundColor Red
-        exit 1
-    }
-} else {
-    Write-OK 'Git'
-}
-
-# ---- Clone repository -----------------------------------------
-if (Test-Path (Join-Path $CurseHome '.git')) {
-    Write-Step "Updating existing installation at $CurseHome"
-    Push-Location $CurseHome
-    $pullOut = git pull --ff-only origin $Branch 2>&1
-    if ($LASTEXITCODE -ne 0) {
-        Pop-Location
-        Write-Host "  [!] Git pull failed: $pullOut" -ForegroundColor Red
-        exit 1
-    }
-    Pop-Location
-} else {
-    Write-Step "Cloning $Repo to $CurseHome"
-    if (Test-Path $CurseHome) { Remove-Item $CurseHome -Recurse -Force }
-    try {
-        git clone --depth 1 --branch $Branch "https://github.com/$Repo.git" $CurseHome
-    } catch {
-        Write-Host "  [!] Git clone failed: $_" -ForegroundColor Red
-        exit 1
-    }
-}
-Write-OK "Repository at $CurseHome"
-
-# ---- Build / copy binary --------------------------------------
-New-Item -ItemType Directory -Path $BinDir -Force | Out-Null
-$targetExe = Join-Path $BinDir 'curse.exe'
-
-$prebuiltPaths = @(
-    Join-Path $CurseHome 'curse.exe'
-    Join-Path $CurseHome 'releases' 'curse-dashboard.exe'
-    Join-Path $CurseHome 'curse-dashboard.exe'
-)
-$deployed = $false
-foreach ($src in $prebuiltPaths) {
-    if (Test-Path $src) {
-        Copy-Item $src $targetExe -Force
-        Write-OK "Pre-built binary deployed: $src"
-        $deployed = $true
-        break
-    }
-}
-
-if (-not $deployed) {
-    $haveGo = (Get-Command go -ErrorAction SilentlyContinue) -ne $null
-    if (-not $haveGo) {
-        Write-Step "Installing Go 1.26.0..."
-        $goUrl = 'https://go.dev/dl/go1.26.0.windows-amd64.zip'
-        $goZip = Join-Path $TempDir 'go.zip'
-        try {
-            Invoke-WebRequest -Uri $goUrl -OutFile $goZip -UseBasicParsing
-            Expand-Archive -Path $goZip -DestinationPath 'C:\Go' -Force
-            $env:Path = "C:\Go\bin;$env:Path"
-            [Environment]::SetEnvironmentVariable('Path', "C:\Go\bin;$([Environment]::GetEnvironmentVariable('Path','Machine'))", 'Machine')
-            [Environment]::SetEnvironmentVariable('GOROOT', 'C:\Go', 'Machine')
-            Write-OK 'Go installed'
-        } catch {
-            Write-Host "  [!] Failed to install Go: $_" -ForegroundColor Red
-            exit 1
-        }
-    }
-    Write-Step "Building from source..."
-    Push-Location $CurseHome
-    $env:GOROOT = 'C:\Go'
-    $env:Path = "C:\Go\bin;$env:Path"
-    $buildOut = go build -o $targetExe ./cmd/dashboard/ 2>&1
-    if ($LASTEXITCODE -ne 0) {
-        Pop-Location
-        Write-Host "  [!] Build failed:" -ForegroundColor Red
-        Write-Host $buildOut -ForegroundColor Red
-        exit 1
-    }
-    Pop-Location
-    Write-OK "Binary built: $targetExe"
-}
-
-if (-not (Test-Path $targetExe)) {
-    Write-Host "  [!] Binary not found at $targetExe. Install failed." -ForegroundColor Red
+# Detect OS
+$OS = [Environment]::OSVersion.Platform
+if ($OS -ne "Win32NT") {
+    Write-Host "Error: This script requires Windows 10+" -ForegroundColor $RED
     exit 1
 }
-Write-OK "Binary verified: $((Get-Item $targetExe).Length / 1MB) MB"
 
-# ---- Register PATH --------------------------------------------
-$userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
-$userDirs = $userPath -split ';' | ForEach-Object { $_.Trim() }
-if ($userDirs -notcontains $BinDir) {
-    [Environment]::SetEnvironmentVariable('Path', "$BinDir;$userPath", 'User')
-    $env:Path = "$BinDir;$env:Path"
-    Write-OK "Added $BinDir to PATH"
-} else {
-    Write-OK "PATH already configured"
+Write-Host "  * Platform: Windows" -ForegroundColor Cyan
+
+# Install location
+$BIN_DIR = "$env:USERPROFILE\AppData\Local\Bin"
+if (-not (Test-Path $BIN_DIR)) {
+    New-Item -ItemType Directory -Path $BIN_DIR -Force | Out-Null
+}
+$INSTALL_PATH = "$BIN_DIR\curse.exe"
+
+Write-Host "  * Installing to: $INSTALL_PATH" -ForegroundColor Cyan
+
+# Try to download from GitHub releases
+$REPO = "M523zappin/Curse-Core"
+$API_URL = "https://api.github.com/repos/$REPO/releases/latest"
+try {
+    $VERSION = (Invoke-RestMethod $API_URL -UseBasicParsing).tag_name
+    $FILENAME = "curse-windows-amd64.exe"
+    $DOWNLOAD_URL = "https://github.com/$REPO/releases/download/$VERSION/$FILENAME"
+    
+    Write-Host "  * Downloading CURSE..." -ForegroundColor Cyan
+    Invoke-WebRequest -Uri $DOWNLOAD_URL -OutFile $INSTALL_PATH -UseBasicParsing
+    
+    Write-Host "  [OK] Installed!" -ForegroundColor Green
+} catch {
+    Write-Host "  [!] Binary not available, building from source..." -ForegroundColor Yellow
+    
+    # Check for Go
+    $GO = Get-Command go -ErrorAction SilentlyContinue
+    if ($GO) {
+        Write-Host "  * Building with Go..." -ForegroundColor Cyan
+        & go install github.com/$REPO/cmd/dashboard@latest
+        $INSTALL_PATH = "$env:GOPATH\bin\dashboard.exe"
+    } else {
+        Write-Host "  [!] Go not found. Install Go from https://go.dev then run:" -ForegroundColor Yellow
+        Write-Host "      go install github.com/$REPO/cmd/dashboard@latest" -ForegroundColor Cyan
+    }
 }
 
-# ---- Cleanup --------------------------------------------------
-Remove-Item $TempDir -Recurse -Force -ErrorAction SilentlyContinue
+# Add to PATH
+$USER_PATH = [Environment]::GetEnvironmentVariable("Path", "User")
+if ($USER_PATH -notlike "*$BIN_DIR*") {
+    [Environment]::SetEnvironmentVariable("Path", "$USER_PATH;$BIN_DIR", "User")
+    Write-Host "  [!] Added $BIN_DIR to PATH" -ForegroundColor Yellow
+    Write-Host "      Restart your terminal or run: refreshenv" -ForegroundColor Cyan
+}
 
-Write-Host @"
-
-  ================================
-  :    C U R S E                 :
-  :  Installation Complete       :
-  :                              :
-  :  No API keys needed.         :
-  :                              :
-  :  Binary: $targetExe
-  :  Source: $CurseHome
-  :                              :
-  :  Run:   curse                :
-  ================================
-"@ -ForegroundColor Green
+Write-Host ""
+Write-Host "[OK] CURSE installed successfully!" -ForegroundColor Green
+Write-Host ""
+Write-Host "  Quick Start:" -ForegroundColor Cyan
+Write-Host "    curse              # Start CURSE"
+Write-Host "    curse --help      # Show help"
+Write-Host ""
+Write-Host "  Examples:" -ForegroundColor Cyan
+Write-Host '    >>> create a REST API in Go'
+Write-Host '    >>> add authentication middleware'
+Write-Host '    >>> write unit tests'
+Write-Host ""

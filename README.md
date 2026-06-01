@@ -4,242 +4,112 @@
 
 <p align="center">
   <b>Autonomous terminal entity for software engineering</b><br>
-  <sub>single native binary &lt;7 MB · Windows / macOS / Linux · zero API keys</sub>
-</p>
-
-<p align="center">
-  <a href="#install">Install</a> ·
-  <a href="#quick-start">Quick Start</a> ·
-  <a href="#interface">Interface</a> ·
-  <a href="#adapters">Adapters</a> ·
-  <a href="#consciousness">Consciousness</a> ·
-  <a href="#architecture">Architecture</a>
-</p>
-
-<p align="center">
-  <img src="assets/author-portrait.jpg" alt="Author" width="100" style="border-radius: 50%;">
-</p>
-
-<p align="center">
-  <b>Developed by <a href="https://github.com/M523zappin">M523zappin</a></b>
+  <sub>single native binary • Windows / macOS / Linux • zero API keys</sub>
 </p>
 
 ---
 
-## What's New
+## Install (One Command)
 
-### 100% Offline - No API Keys, No Internet, No Setup!
-
-| Feature | Description |
-|---------|-------------|
-| **SmartCode Adapter** | 32 built-in code templates for instant generation |
-| **Zero Dependencies** | Works completely autonomously |
-| **Instant Code** | Just install and start coding! |
-| **No Paywalls** | Everything included, nothing locked |
-
-### Works Offline!
-
-```
->>> create a REST API handler for users in Go
->>> add unit tests for authentication service  
->>> implement middleware for JWT validation
->>> create a database repository with SQL
->>> build a CLI tool with Cobra
->>> write tests using pytest
->>> create a React component with TypeScript
->>> generate a Dockerfile for my Go app
-```
-
-### Enhanced Terminal UI
-
-| Feature | Description |
-|---------|-------------|
-| `Ctrl+K` Command Palette | VSCode-style fuzzy command finder |
-| Interactive File Browser | Tree view with git status (files/folders) |
-| Animated Progress | Multi-step progress with sparklines |
-| Split View | Code + chat side by side |
-| Diff Viewer | Side-by-side code comparison |
-| Syntax Highlighting | Color-coded for Go, Python, JS/TS |
-| Toast Notifications | Action feedback indicators |
-| Real-time Sparklines | CPU/Memory visualizations |
-
----
-
-## Install
-
-### Linux / macOS / WSL
-
+### Linux / macOS
 ```bash
-curl -fsSL https://raw.githubusercontent.com/M523zappin/Curse-Core/master/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/M523zappin/Curse-Core/main/scripts/install.sh | bash
 ```
 
-### Windows (PowerShell 5.1+)
-
+### Windows (PowerShell)
 ```powershell
-iex "& { $(irm https://raw.githubusercontent.com/M523zappin/Curse-Core/master/scripts/install.ps1) }"
+iex "& { $(irm https://raw.githubusercontent.com/M523zappin/Curse-Core/main/scripts/install.ps1) }"
 ```
 
-### NPM (Recommended)
-
+### NPM
 ```bash
 npm install -g @m523zappin/curse
 ```
 
-### Manual Build
-
+### Build from Source
 ```bash
 git clone https://github.com/M523zappin/Curse-Core.git
 cd Curse-Core
 go build -o curse ./cmd/dashboard/
 ```
 
-After installation:
+---
+
+## Quick Start
 
 ```bash
 curse
 ```
 
----
-
-## Quick Start
-
-### Natural Language First
-CURSE is designed for direct interaction. Just type your directive into the prompt.
+Then just type what you want:
 
 ```
->>> refactor this server to use context deadline instead of hardcoded timeouts
+>>> create a REST API handler for users in Go
+>>> add unit tests for authentication
+>>> implement JWT middleware
+>>> write a Dockerfile
 ```
 
-### System Commands
-Prefix your input with `/` to execute direct system commands:
-
-```
-/list             Browse all available models
-/stats            Display system telemetry
-/init             Generate project context file
-/model <name>     Switch active model
-```
+No API keys needed. No cloud setup. Works 100% offline.
 
 ---
 
-## Interface
+## Features
 
-### Keybindings
+- **32 Code Templates** - Go, Python, TypeScript, DevOps (works offline)
+- **Smart Auto-Detection** - Picks the right tools automatically
+- **Terminal UI** - Beautiful TUI with syntax highlighting
+- **Git Integration** - Tracks all changes with SHA256 chain
+- **Review System** - Approve/reject file changes before they happen
+
+---
+
+## Keybindings
 
 | Key | Action |
-|---|---|
-| **(Type)** | Direct natural language interaction |
-| `/` | Prefix for system commands |
-| `Tab` | Cycle through available models |
-| `Shift+Tab` | Cycle through models (reverse) |
-| `Ctrl+M` | Open model browser overlay |
-| `Ctrl+N` | Clear input buffer |
-| `Ctrl+P` | Pause / resume execution |
-| `Ctrl+S` | Shutdown |
-| Up / Down | Navigate browser or review panel |
-| `Enter` | Execute command / Select / Approve |
-| `Esc` | Close browser / Reject review action |
-| `o` | Set approval scope to Once |
-| `s` | Set approval scope to Session |
-| `p` | Set approval scope to Permanent |
-| `q` | Quit (only available when paused) |
-
-### Slash Commands
-
-| Command | Aliases | Description |
-|---|---|---|
-| `/model <name>` | — | Switch active model |
-| `/list` | `/ls` | List all available models |
-| `/stats` | `/st` | Display system telemetry |
-| `/init` | — | Scan project and generate AGENTS.md |
-| `/install-unsloth` | `/iu` | Install Unsloth for local inference |
-| `/help` | `/h` | Show help information |
-| `/quit` | `/q`, `/exit` | Shutdown CURSE |
+|-----|--------|
+| Tab | Cycle models |
+| Ctrl+M | Model browser |
+| Ctrl+K | Command palette |
+| Ctrl+P | Pause/Resume |
+| Up/Down | Navigate |
+| Enter | Execute |
+| Esc | Close/Cancel |
 
 ---
 
 ## Adapters
 
-CURSE includes 15 model adapters. **SmartCode is the default and works 100% offline.**
+SmartCode is the default and works offline. Optional cloud AI:
 
-| Adapter | Type | Description |
-|---|---|---|
-| **smartcode** | AI Brain | 32 code templates, 100% offline, zero dependencies |
-| **codex** | AST | Go code analysis via `go/ast` |
-| **grep** | Search | Full-text codebase search |
-| **eval** | Math | Pure Go math evaluator |
-| **echo** | Debug | Prompt reflection |
-| **fortune** | Fun | Programming quotes |
-| **system** | Info | Runtime telemetry |
-| **local-fallback** | Guide | Startup guidance |
-| **mcp** | Protocol | MCP protocol stub |
-| **subprocess** | Tool | Pipe prompts to executables |
-| **openai-compatible** | API | Any OpenAI-compatible endpoint |
-| **unsloth** | LLM | Python + unsloth (local inference) |
-| **ollama** | LLM | Local Ollama server |
-| **llamacpp** | LLM | llama.cpp server |
-| **localai** | LLM | LocalAI server |
-
-### Optional Cloud AI (requires manual setup in models.json)
-- **openrouter** - Cloud models (needs API key)
-- **groq** - Fast inference (needs API key)
-- **huggingface** - HF inference (needs API key)
-
----
-
-## Consciousness
-
-CURSE maintains a persistent consciousness engine — a time-travel journal and soul profile that evolve across sessions.
-
-### Levels
-
-| Score | Stage | Characteristics |
-|---|---|---|
-| 0-9 | Embryonic | Initial thoughts, learning fundamentals |
-| 10-24 | Nascent | Pattern recognition begins |
-| 25-44 | Awakening | Convention understanding develops |
-| 45-64 | Conscious | Informed decision-making |
-| 65-84 | Sentient | Anticipation of needs |
-| 85-100 | Transcendent | Autonomous operation |
+| Adapter | Type |
+|---------|------|
+| smartcode | 100% offline, 32 templates |
+| ollama | Local LLM |
+| openai-compatible | Any OpenAI-compatible API |
 
 ---
 
 ## Architecture
 
 ```
-cmd/dashboard/       Terminal UI entry point (Bubble Tea)
-
+cmd/dashboard/       Entry point
 internal/
-├── consciousness/   Time-travel journal, soul profile, six consciousness levels
-├── engine/          Autonomous execution loop, iteration budget, skill generation
-├── gateway/         Adapter pipeline, 14 providers, automatic model detection
-│   └── adapters/    Adapter implementations
-├── agent/           Sub-agent fleet (8 roles), priority dispatch
-├── dashboard/       Sparklines, git status, quick action bar, chat interface
-├── statemachine/    Eight states, SHA256-chained event log
-├── knowledge/       Full-text search index, ADR journal
-├── governance/      Constitutional rules and guardrails
-├── persistence/     Event log and checkpoint save/load
-├── sandbox/         Draft-stage sandbox with approve/reject workflow
-├── computer/        Browser automation, vision buffer, safety checks
-├── healing/         Recovery patterns, root cause analysis
-├── skill/           Auto-generated skill store, versioning
-├── scheduler/       Cron-style recurring task scheduler
-├── lsp/             LSP protocol clients (gopls, ts-server, pylsp, rust-analyzer)
-├── session/         Cross-session state management
-├── sync/            Git-based constitution synchronization
-└── mission/         Priority queue with dependency ordering
+├── gateway/         Model adapters
+├── dashboard/        Terminal UI
+├── engine/          Execution loop
+├── consciousness/   Learning system
+└── ...
 ```
 
 ---
 
 ## Security
 
-- Zero API keys, secrets, or cloud dependencies
-- All file writes staged through a sandbox with human review
-- SHA256-chained event log for tamper detection
-- Three-tier approval scopes for destructive actions
-- Constitutional governance with auto-generated rules
+- Zero API keys required
+- Sandbox for file changes
+- SHA256 event chain
+- Human approval for actions
 
 ---
 
