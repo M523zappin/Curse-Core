@@ -477,7 +477,7 @@ func (a *FreeAPIAdapter) generateCodeResponse(prompt string) string {
 	buf.WriteString("1. Install Ollama: `curl -fsSL https://ollama.ai/install.sh | sh`\n")
 	buf.WriteString("2. Pull a model: `ollama pull codellama`\n")
 	buf.WriteString("3. Start server: `ollama serve`\n")
-	buf.WriteString("4. Press "'Tab'" to select the ollama model\n\n")
+	buf.WriteString("4. Press "Tab" to select the ollama model\n\n")
 	buf.WriteString("*Or use free APIs: OpenRouter, HuggingFace, or Groq*")
 	
 	return buf.String()
@@ -539,7 +539,7 @@ func (a *FreeAPIAdapter) generateJSDemo() string {
 	return "// Example TypeScript code\n" +
 	    "interface ServiceOptions { name: string; }\n" +
 	    "class Service {\n" +
-	    '    constructor(private options: ServiceOptions) {}\n' +
+	    "    constructor(private options: ServiceOptions) {}\n" +
 	    "    process(): string { return 'Processing'; }\n" +
 	    "}\n" +
 	    "const service = new Service({ name: 'CURSE' });"
@@ -582,10 +582,10 @@ Hello! I'm CURSE, your autonomous coding assistant.
 | **Debug** | Error analysis, fixes |
 
 ### Quick Commands
-- "'/list'" - View available models
-- "'/stats'" - System information  
-- "'/init'" - Initialize project context
-- "'Tab'" - Cycle through models
+- "/list" - View available models
+- "/stats" - System information  
+- "/init" - Initialize project context
+- "Tab" - Cycle through models
 - "'Ctrl+M'" - Model browser
 
 ### Free Model Options

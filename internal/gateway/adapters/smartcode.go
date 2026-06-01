@@ -215,43 +215,36 @@ func extractName(task string) string {
 
 func generateFallback(task, lang string) string {
 	name := extractName(task)
-	return fmt.Sprintf(`## Generated %s Code
-
-Here's a complete implementation for your request:
-
-```%s
-// %s represents a %s
-type %s struct {
-    ID        string    `+ "`" +`json:"id"`+ "`" +`
-    Name      string    `+ "`" +`json:"name"`+ "`" +`
-    CreatedAt time.Time `+ "`" +`json:"created_at"`+ "`" +`
-    UpdatedAt time.Time `+ "`" +`json:"updated_at"`+ "`" +`
+	bt := "\x60"  // backtick character
+	return fmt.Sprintf(
+		"## Generated %s Code\n\n" +
+		"Here's a complete implementation for your request:\n\n" +
+		"```%s\n" +
+		"// %s represents a %s\n" +
+		"type %s struct {\n" +
+		'\tID        string    ' + bt + 'json:"id"' + bt + '\n' +
+		'\tName      string    ' + bt + 'json:"name"' + bt + '\n' +
+		'\tCreatedAt time.Time ' + bt + 'json:"created_at"' + bt + '\n' +
+		'\tUpdatedAt time.Time ' + bt + 'json:"updated_at"' + bt + '\n' +
+		"}\n\n" +
+		"// New%s creates a new %s\n" +
+		"func New%s(name string) *%s {\n" +
+		"\treturn &%s{\n" +
+		"\t\tID:   uuid.New().String(),\n" +
+		"\t\tName: name,\n" +
+		"\t\tCreatedAt: time.Now(),\n" +
+		"\t\tUpdatedAt: time.Now(),\n" +
+		"\t}\n" +
+		"}\n" +
+		"```\n\n" +
+		"This is a basic template. For more specific code generation, try:\n" +
+		'- "create a REST API handler"\n' +
+		'- "add unit tests"\n' +
+		'- "implement authentication middleware"\n' +
+		'- "create a database model"\n\n' +
+		"I'm a 100%% offline code generator - no API keys or internet needed! 🚀\n",
+		strings.Title(lang), lang, name, name, name, name, name, name, name, name, name)
 }
-
-// New%s creates a new %s
-func New%s(name string) *%s {
-    return &%s{
-        ID:   uuid.New().String(),
-        Name: name,
-        CreatedAt: time.Now(),
-        UpdatedAt: time.Now(),
-    }
-}
-```
-
-This is a basic template. For more specific code generation, try:
-- "create a REST API handler"
-- "add unit tests"
-- "implement authentication middleware"
-- "create a database model"
-
-I'm a 100%% offline code generator - no API keys or internet needed! 🚀
-`, strings.Title(lang), lang, name, name, name, name, name, name, name)
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// GO TEMPLATES
-// ═══════════════════════════════════════════════════════════════════════════
 
 func goRESTHandler(task string) string {
 	name := extractName(task)

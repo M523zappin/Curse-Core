@@ -678,8 +678,9 @@ func (msp *MultiStepProgress) SetStepProgress(idx, progress int) {
 func (msp *MultiStepProgress) View() string {
 	var buf strings.Builder
 
-	for i, step := range msp.steps {
-		var icon, color lipgloss.Color
+	for _, step := range msp.steps {
+		var icon string
+		var color lipgloss.Color
 		switch step.Status {
 		case "done":
 			icon = "✓"
