@@ -1,6 +1,7 @@
 # CURSE - Windows Installer (PowerShell)
-# Just run this ONE command in PowerShell:
-#   iex "& { $(irm https://curse.sh/install.ps1) }"
+# Run this in PowerShell:
+
+$ErrorActionPreference = "Stop"
 
 $CYAN = "Cyan"
 $GREEN = "Green"
@@ -14,68 +15,76 @@ Write-Host "║    Zero API Keys • 100% Offline Ready   ║" -ForegroundColor 
 Write-Host "╚══════════════════════════════════════════╝" -ForegroundColor $CYAN
 Write-Host ""
 
-# Detect OS
-$OS = [Environment]::OSVersion.Platform
-if ($OS -ne "Win32NT") {
-    Write-Host "Error: This script requires Windows 10+" -ForegroundColor $RED
+# Check Windows version
+if (-not ($env:OS -eq "Windows_NT")) {
+    Write-Host "Error: This requires Windows" -ForegroundColor $RED
     exit 1
 }
 
-Write-Host "  * Platform: Windows" -ForegroundColor Cyan
-
-# Install location
 $BIN_DIR = "$env:USERPROFILE\AppData\Local\Bin"
+$INSTALL_PATH = "$BIN_DIR\curse.exe"
+
+# Create directory if needed
 if (-not (Test-Path $BIN_DIR)) {
     New-Item -ItemType Directory -Path $BIN_DIR -Force | Out-Null
 }
-$INSTALL_PATH = "$BIN_DIR\curse.exe"
 
-Write-Host "  * Installing to: $INSTALL_PATH" -ForegroundColor Cyan
+Write-Host "  Platform: Windows" -ForegroundColor Cyan
+Write-Host "  Install to: $INSTALL_PATH" -ForegroundColor Cyan
+Write-Host ""
 
-# Try to download from GitHub releases
 $REPO = "M523zappin/Curse-Core"
 $API_URL = "https://api.github.com/repos/$REPO/releases/latest"
+
 try {
-    $VERSION = (Invoke-RestMethod $API_URL -UseBasicParsing).tag_name
+    # Get latest release
+    Write-Host "  Fetching latest version..." -ForegroundColor Cyan
+    $RELEASE = Invoke-RestMethod $API_URL -UseBasicParsing -TimeoutSec 10
+    $VERSION = $RELEASE.tag_name
     $FILENAME = "curse-windows-amd64.exe"
     $DOWNLOAD_URL = "https://github.com/$REPO/releases/download/$VERSION/$FILENAME"
     
-    Write-Host "  * Downloading CURSE..." -ForegroundColor Cyan
-    Invoke-WebRequest -Uri $DOWNLOAD_URL -OutFile $INSTALL_PATH -UseBasicParsing
+    Write-Host "  Downloading v$VERSION..." -ForegroundColor Cyan
+    Invoke-WebRequest -Uri $DOWNLOAD_URL -OutFile $INSTALL_PATH -UseBasicParsing -TimeoutSec 60
     
-    Write-Host "  [OK] Installed!" -ForegroundColor Green
+    # Remove Zone identifier if present
+    Unblock-File -Path $INSTALL_PATH -ErrorAction SilentlyContinue
+    
+    Write-Host ""
+    Write-Host "========================================" -ForegroundColor Green
+    Write-Host "  INSTALLED SUCCESSFULLY!" -ForegroundColor Green
+    Write-Host "========================================" -ForegroundColor Green
+    Write-Host ""
+    
 } catch {
-    Write-Host "  [!] Binary not available, building from source..." -ForegroundColor Yellow
-    
-    # Check for Go
-    $GO = Get-Command go -ErrorAction SilentlyContinue
-    if ($GO) {
-        Write-Host "  * Building with Go..." -ForegroundColor Cyan
-        & go install github.com/$REPO/cmd/dashboard@latest
-        $INSTALL_PATH = "$env:GOPATH\bin\dashboard.exe"
-    } else {
-        Write-Host "  [!] Go not found. Install Go from https://go.dev then run:" -ForegroundColor Yellow
-        Write-Host "      go install github.com/$REPO/cmd/dashboard@latest" -ForegroundColor Cyan
-    }
+    Write-Host "  Download failed: $_" -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "========================================" -ForegroundColor Yellow
+    Write-Host "  ALTERNATIVE: Build from source" -ForegroundColor Yellow
+    Write-Host "========================================" -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "  1. Install Go from: https://go.dev/dl/" -ForegroundColor Cyan
+    Write-Host "  2. Restart PowerShell" -ForegroundColor Cyan  
+    Write-Host "  3. Run: go install github.com/$REPO/cmd/dashboard@latest" -ForegroundColor Cyan
+    Write-Host ""
+    Write-Host "  Or use pre-built binaries from:" -ForegroundColor Yellow
+    Write-Host "  https://github.com/$REPO/releases" -ForegroundColor Cyan
+    Write-Host ""
+    exit 1
 }
 
 # Add to PATH
 $USER_PATH = [Environment]::GetEnvironmentVariable("Path", "User")
 if ($USER_PATH -notlike "*$BIN_DIR*") {
     [Environment]::SetEnvironmentVariable("Path", "$USER_PATH;$BIN_DIR", "User")
-    Write-Host "  [!] Added $BIN_DIR to PATH" -ForegroundColor Yellow
-    Write-Host "      Restart your terminal or run: refreshenv" -ForegroundColor Cyan
+    $env:Path = "$USER_PATH;$BIN_DIR"
 }
 
-Write-Host ""
-Write-Host "[OK] CURSE installed successfully!" -ForegroundColor Green
-Write-Host ""
 Write-Host "  Quick Start:" -ForegroundColor Cyan
-Write-Host "    curse              # Start CURSE"
-Write-Host "    curse --help      # Show help"
+Write-Host "    curse" -ForegroundColor White
 Write-Host ""
 Write-Host "  Examples:" -ForegroundColor Cyan
-Write-Host '    >>> create a REST API in Go'
-Write-Host '    >>> add authentication middleware'
-Write-Host '    >>> write unit tests'
+Write-Host '    >>> create a REST API in Go' -ForegroundColor White
+Write-Host '    >>> add unit tests' -ForegroundColor White
+Write-Host '    >>> write a Dockerfile' -ForegroundColor White
 Write-Host ""
