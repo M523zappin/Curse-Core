@@ -21,11 +21,6 @@ curl -fsSL https://raw.githubusercontent.com/M523zappin/Curse-Core/main/scripts/
 iex "& { $(irm https://raw.githubusercontent.com/M523zappin/Curse-Core/main/scripts/install.ps1) }"
 ```
 
-### NPM
-```bash
-npm install -g @m523zappin/curse
-```
-
 ### Build from Source
 ```bash
 git clone https://github.com/M523zappin/Curse-Core.git
@@ -96,7 +91,7 @@ SmartCode is the default and works offline. Optional cloud AI:
 cmd/dashboard/       Entry point
 internal/
 ├── gateway/         Model adapters
-├── dashboard/        Terminal UI
+├── dashboard/       Terminal UI
 ├── engine/          Execution loop
 ├── consciousness/   Learning system
 └── ...
