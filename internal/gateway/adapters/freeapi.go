@@ -477,7 +477,7 @@ func (a *FreeAPIAdapter) generateCodeResponse(prompt string) string {
 	buf.WriteString("1. Install Ollama: `curl -fsSL https://ollama.ai/install.sh | sh`\n")
 	buf.WriteString("2. Pull a model: `ollama pull codellama`\n")
 	buf.WriteString("3. Start server: `ollama serve`\n")
-	buf.WriteString("4. Press "Tab" to select the ollama model\n\n")
+	buf.WriteString("4. Press \"Tab\" to select the ollama model\n\n")
 	buf.WriteString("*Or use free APIs: OpenRouter, HuggingFace, or Groq*")
 	
 	return buf.String()
