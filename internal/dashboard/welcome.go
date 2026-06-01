@@ -322,7 +322,7 @@ func (w *WelcomeWizard) RenderSystemStatus() string {
 
 	// Consciousness level
 	if consciousness := w.gateway.Consciousness(); consciousness != nil {
-		level := consciousness.Score()
+		level := consciousness.Level()
 		stage := "Embryonic"
 		switch {
 		case level >= 85:
