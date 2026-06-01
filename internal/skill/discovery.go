@@ -59,7 +59,7 @@ func NewAutoDiscovery(store *Store, repoPath string) *AutoDiscovery {
 	return &AutoDiscovery{
 		store:    store,
 		patterns: make(map[string]*SkillPattern),
-		scanner: &CodebaseScanner{
+		codebaseScanner: &CodebaseScanner{
 			repoPath: repoPath,
 			cache:    make(map[string]*ScanResult),
 		},
@@ -166,7 +166,7 @@ func (s *CodebaseScanner) Scan(ctx context.Context) (*ScanResult, error) {
 }
 
 func (s *CodebaseScanner) detectFrameworks(content, lang string, result *ScanResult) {
-	frameworks := map[string][]string{
+	frameworks := map[string]map[string]string{
 		"go": {
 			"github.com/gin-gonic/gin":    "Gin Web Framework",
 			"github.com/gofiber/fiber":    "Fiber Web Framework",
