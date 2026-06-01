@@ -222,10 +222,10 @@ func generateFallback(task, lang string) string {
 		"```%s\n" +
 		"// %s represents a %s\n" +
 		"type %s struct {\n" +
-		'\tID        string    ' + bt + 'json:"id"' + bt + '\n' +
-		'\tName      string    ' + bt + 'json:"name"' + bt + '\n' +
-		'\tCreatedAt time.Time ' + bt + 'json:"created_at"' + bt + '\n' +
-		'\tUpdatedAt time.Time ' + bt + 'json:"updated_at"' + bt + '\n' +
+            "\tID        string    " + bt + "json:\"id\"" + bt + "\n" +
+            "\tName      string    " + bt + "json:\"name\"" + bt + "\n" +
+            "\tCreatedAt time.Time " + bt + "json:\"created_at\"" + bt + "\n" +
+            "\tUpdatedAt time.Time " + bt + "json:\"updated_at\"" + bt + "\n" +
 		"}\n\n" +
 		"// New%s creates a new %s\n" +
 		"func New%s(name string) *%s {\n" +
@@ -238,10 +238,10 @@ func generateFallback(task, lang string) string {
 		"}\n" +
 		"```\n\n" +
 		"This is a basic template. For more specific code generation, try:\n" +
-		'- "create a REST API handler"\n' +
-		'- "add unit tests"\n' +
-		'- "implement authentication middleware"\n' +
-		'- "create a database model"\n\n' +
+                "- \"create a REST API handler\"\n" +
+                "- \"add unit tests\"\n" +
+                "- \"implement authentication middleware\"\n" +
+                "- \"create a database model\"\n\n" +
 		"I'm a 100%% offline code generator - no API keys or internet needed! 🚀\n",
 		strings.Title(lang), lang, name, name, name, name, name, name, name, name, name)
 }

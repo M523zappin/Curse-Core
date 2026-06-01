@@ -545,7 +545,7 @@ func (dv *DiffViewer) View() string {
 		Foreground(ColorAccent).
 		Bold(true)
 
-	buf.WriteString("┌─ Diff ──────────────────────────────┐\n")
+	buf.WriteString(headerStyle.Render("┌─ Diff ──────────────────────────────┐") + "\n")
 
 	// Simplified diff display
 	lines := strings.Split(dv.leftContent, "\n")
@@ -567,7 +567,7 @@ func (dv *DiffViewer) View() string {
 		buf.WriteString(fmt.Sprintf("  %s\n", lineStyle.Render(fmt.Sprintf("%3d %s", i+1, line))))
 	}
 
-	buf.WriteString("└" + strings.Repeat("─", 37) + "┘")
+	buf.WriteString(headerStyle.Render("└" + strings.Repeat("─", 37) + "┘"))
 
 	return buf.String()
 }

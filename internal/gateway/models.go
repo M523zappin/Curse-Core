@@ -66,6 +66,10 @@ func (reg *ModelRegistry) ActiveProfile() (ModelProfile, bool) {
 	return reg.GetProfile(reg.Active)
 }
 
+func (reg *ModelRegistry) SetActive(name string) {
+	reg.Active = name
+}
+
 func (reg *ModelRegistry) Save(path string) error {
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0755); err != nil {

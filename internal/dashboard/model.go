@@ -423,6 +423,8 @@ func (m *Model) pollEventLog() {
 	if m.logPath == "" {
 		return
 	}
+	var lastEventLogModTime time.Time
+	var lastEventLogSize int64
 	info, err := os.Stat(m.logPath)
 	if err != nil {
 		return
