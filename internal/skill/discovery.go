@@ -438,17 +438,13 @@ func (a *AutoDiscovery) GenerateSkillFromPattern(p *SkillPattern) *Skill {
 		Steps:       steps,
 		Pattern:     p.Pattern,
 		Tags:        []string{p.Language, "auto-generated", "discovered"},
-		Version:     "1.0.0",
-		CreatedAt:   time.Now(),
-		Metadata: map[string]interface{}{
-			"confidence":    p.Confidence,
-			"auto_generated": true,
-		},
+                CreatedAt:   time.Now(),
+                UpdatedAt:   time.Now(),
 	}
 }
 
 func (a *AutoDiscovery) generateStepsForPattern(p *SkillPattern) []string {
-	templates := map[string]map[string]string{
+        templates := map[string][]string{
 		"REST Handler": {
 			"Define request/response structs",
 			"Create handler function with context",
