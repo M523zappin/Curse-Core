@@ -225,7 +225,7 @@ func (s *CodebaseScanner) detectFrameworks(content, lang string, result *ScanRes
 }
 
 func (s *CodebaseScanner) detectPatterns(content, lang string, result *ScanResult) {
-	patterns := map[string][]string{
+	patterns := map[string]map[string]string{
 		"go": {
 			"func (.*) Handler":        "HTTP Handler Pattern",
 			"func New.*\\(":              "Factory Pattern",
@@ -450,7 +450,7 @@ func (a *AutoDiscovery) GenerateSkillFromPattern(p *SkillPattern) *Skill {
 }
 
 func (a *AutoDiscovery) generateStepsForPattern(p *SkillPattern) []string {
-	templates := map[string][]string{
+	templates := map[string]map[string]string{
 		"REST Handler": {
 			"Define request/response structs",
 			"Create handler function with context",
