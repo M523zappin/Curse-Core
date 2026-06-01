@@ -417,16 +417,14 @@ func (a *AutoDiscovery) generateFrameworkSkill(fw, lang string) *SkillPattern {
 }
 
 func (a *AutoDiscovery) generateCommonPatterns(lang string) []*SkillPattern {
-	common := []*SkillPattern{
-		{"Error Handling", "Best practices for error handling", "error", lang, 0.9, true},
-		{"Logging", "Structured logging patterns", "log", lang, 0.85, true},
-		{"Configuration", "Configuration management", "config", lang, 0.85, true},
-		{"Testing", "Testing best practices", "test", lang, 0.9, true},
-		{"Documentation", "Code documentation patterns", "docs", lang, 0.8, true},
-		{"API Design", "REST API design patterns", "api", lang, 0.9, true},
-	}
-
-	return common
+        return []*SkillPattern{
+                {Name: "Error Handling", Description: "Best practices for error handling", Pattern: "error", Language: lang, Confidence: 0.9, AutoGen: true},
+                {Name: "Logging", Description: "Structured logging patterns", Pattern: "log", Language: lang, Confidence: 0.85, AutoGen: true},
+                {Name: "Configuration", Description: "Configuration management", Pattern: "config", Language: lang, Confidence: 0.85, AutoGen: true},
+                {Name: "Testing", Description: "Testing best practices", Pattern: "test", Language: lang, Confidence: 0.9, AutoGen: true},
+                {Name: "Documentation", Description: "Code documentation patterns", Pattern: "docs", Language: lang, Confidence: 0.8, AutoGen: true},
+                {Name: "API Design", Description: "REST API design patterns", Pattern: "api", Language: lang, Confidence: 0.9, AutoGen: true},
+        }
 }
 
 // GenerateSkillFromPattern creates a Skill from a SkillPattern
