@@ -49,7 +49,7 @@ func (a *EvalAdapter) Send(ctx context.Context, req *gateway.Prompt) (*gateway.R
 	}
 
 	return &gateway.Response{
-		Message: gateway.Message{Role: gateway.RoleAssistant, Content: fmt.Sprintf("🧮 %s = %v", expr, result)},
+		Message: gateway.Message{Role: gateway.RoleAssistant, Content: fmt.Sprintf("%s = %v", expr, result)},
 		Done:    true,
 	}, nil
 }

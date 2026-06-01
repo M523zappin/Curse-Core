@@ -545,7 +545,7 @@ class Service {
     constructor(private options: ServiceOptions) {}
     
     process(): string {
-        return \`Processing with \${this.options.name}\`;
+        return `Processing with ${this.options.name}`;
     }
 }
 
@@ -592,11 +592,11 @@ Hello! I'm CURSE, your autonomous coding assistant.
 | **Debug** | Error analysis, fixes |
 
 ### Quick Commands
-- `/list` — View available models
-- `/stats` — System information  
-- `/init` — Initialize project context
-- `Tab` — Cycle through models
-- `Ctrl+M` — Model browser
+- `/list` - View available models
+- `/stats` - System information  
+- `/init` - Initialize project context
+- `Tab` - Cycle through models
+- `Ctrl+M` - Model browser
 
 ### Free Model Options
 
