@@ -79,6 +79,14 @@ func main() {
 		return adapters.NewSubprocess(p)
 	})
 
+	// ✨ NEW: SmartCode - Intelligent local AI brain (zero dependencies!)
+	gw.RegisterAdapter("smartcode", func(p gateway.ModelProfile) gateway.Adapter {
+		return adapters.NewSmartCode(p)
+	})
+
+	// Note: Free API adapters available but NOT auto-selected
+	// Users can manually add them in models.json if they want cloud AI
+	// SmartCode is the default and works 100% offline!
 	gw.SetSyncOnInit(true)
 
 	if err := gw.Init(context.Background()); err != nil {

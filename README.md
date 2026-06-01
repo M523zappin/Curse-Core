@@ -26,6 +26,53 @@
 
 ---
 
+## ✨ What's New - Better Than Claude Code
+
+### 🎯 100% Offline - No API Keys, No Internet, No Setup!
+- **SmartCode Adapter** - Built-in intelligent code generation with 32 code templates
+- **Zero External Dependencies** - Works completely autonomously
+- **Instant Code Generation** - Just install and start coding!
+- **No Paywalls** - Everything is included, nothing is locked behind a paywall
+
+### 🚀 Instant Code Generation (Works Offline!)
+```text
+>>> create a REST API handler for users in Go
+>>> add unit tests for authentication service  
+>>> implement middleware for JWT validation
+>>> create a database repository with SQL
+>>> build a CLI tool with Cobra
+>>> write tests using pytest
+>>> create a React component with TypeScript
+>>> generate a Dockerfile for my Go app
+```
+
+### 🎨 Enhanced Terminal UI (Better Than Claude Code!)
+| Feature | Description |
+|---------|-------------|
+| **Ctrl+K Command Palette** | VSCode-style fuzzy finder for all commands |
+| **Interactive File Browser** | Tree view with git status icons 📂📁 |
+| **Animated Progress** | Multi-step progress with sparklines ▂▄▆ |
+| **Split View** | Code + chat side by side |
+| **Diff Viewer** | Side-by-side code comparison |
+| **Syntax Highlighting** | Color-coded code with themes |
+| **Notifications** | Toast notifications for actions ✓ ⚠ ✗ |
+| **Real-time Sparklines** | CPU/Memory/Network visualizations |
+
+### ⌨️ Keybindings
+
+| Key | Action |
+|-----|--------|
+| `Ctrl+K` | Open command palette (fuzzy search) |
+| `Tab` | Cycle through models |
+| `Ctrl+M` | Model browser overlay |
+| `Ctrl+P` | Pause/Resume execution |
+| `↑/↓` | Navigate lists |
+| `/list` | Show all models |
+| `/stats` | System info |
+| `/help` | Show help |
+
+---
+
 ## Install
 
 ### Linux / macOS / WSL
@@ -121,24 +168,30 @@ Prefix your input with `/` to execute direct system commands:
 
 ## Adapters
 
-CURSE includes 14 model adapters. None require API keys.
+CURSE includes 15 model adapters. **SmartCode is the default and works 100% offline.**
 
-| Adapter | Type | Dependencies | Description |
-|---|---|---|---|
-| **codex** | AST | none | Go code analysis via `go/ast` |
-| **grep** | Search | none | Full-text codebase search |
-| **eval** | Math | none | Pure Go math evaluator |
-| **echo** | Debug | none | Prompt reflection |
-| **fortune** | Fun | none | Programming quotes |
-| **system** | Info | none | Runtime telemetry |
-| **local-fallback** | Guide | none | Startup guidance |
-| **mcp** | Protocol | none | MCP protocol stub |
-| **subprocess** | Tool | — | Pipe prompts to executables |
-| **openai-compatible** | API | — | Any OpenAI-compatible endpoint |
-| **unsloth** | LLM | Python + unsloth | Direct Python subprocess for local LLM inference |
-| **ollama** | LLM | Ollama server | Local Ollama HTTP API |
-| **llamacpp** | LLM | llama.cpp server | Native and OpenAI-compatible API |
-| **localai** | LLM | LocalAI server | OpenAI-compatible with model listing |
+| Adapter | Type | Description |
+|---|---|---|
+| **smartcode** | AI Brain | ✨ 32 code templates, 100% offline, zero dependencies |
+| **codex** | AST | Go code analysis via `go/ast` |
+| **grep** | Search | Full-text codebase search |
+| **eval** | Math | Pure Go math evaluator |
+| **echo** | Debug | Prompt reflection |
+| **fortune** | Fun | Programming quotes |
+| **system** | Info | Runtime telemetry |
+| **local-fallback** | Guide | Startup guidance |
+| **mcp** | Protocol | MCP protocol stub |
+| **subprocess** | Tool | Pipe prompts to executables |
+| **openai-compatible** | API | Any OpenAI-compatible endpoint |
+| **unsloth** | LLM | Python + unsloth (local inference) |
+| **ollama** | LLM | Local Ollama server |
+| **llamacpp** | LLM | llama.cpp server |
+| **localai** | LLM | LocalAI server |
+
+### Optional Cloud AI (requires manual setup in models.json)
+- **openrouter** - Cloud models (needs API key)
+- **groq** - Fast inference (needs API key)
+- **huggingface** - HF inference (needs API key)
 
 ---
 

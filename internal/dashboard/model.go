@@ -53,7 +53,16 @@ type Model struct {
 	modelBrowserIdx     int
 	modelBrowserList    []string
 
-	inputBuffer  string
+	inputBuffer string
+
+	// ✨ NEW: Enhanced TUI Features
+	commandPalette   *CommandPalette
+	fileBrowser      *FileBrowser
+	splitView        *SplitView
+	diffViewer       *DiffViewer
+	notifications    *NotificationManager
+	syntaxHighlighter *SyntaxHighlighter
+	statusBar        *EnhancedStatusBar
 
 	traceMu  sync.Mutex
 	bootTick int
@@ -80,6 +89,9 @@ func NewModel(gw *gateway.Gateway) *Model {
 		detected = append(detected, label)
 	}
 
+	// Get current working directory for file browser
+	cwd, _ := os.Getwd()
+
 	m := &Model{
 		gateway:      gw,
 		traceItems:   make([]TraceEntry, 0),
@@ -90,6 +102,15 @@ func NewModel(gw *gateway.Gateway) *Model {
 		lastSeqRead:  0,
 		startTime:    time.Now(),
 		detectedTools: detected,
+		
+		// ✨ NEW: Initialize enhanced TUI components
+		commandPalette:    NewCommandPalette(),
+		fileBrowser:       NewFileBrowser(cwd),
+		splitView:         NewSplitView(),
+		diffViewer:        NewDiffViewer(),
+		notifications:     NewNotificationManager(),
+		syntaxHighlighter: NewSyntaxHighlighter(),
+		statusBar:         NewEnhancedStatusBar(60),
 	}
 
 	if gw.ReviewManager() != nil {
@@ -312,29 +333,98 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "shift+tab":
 			m.cycleModel(-1)
 		case "up":
-			if m.modelBrowserVisible {
-				if m.modelBrowserIdx > 0 {
-					m.modelBrowserIdx--
-				}
+	if m.modelBrowserVisible {
+		browserOverlay := m.renderModelBrowser(m.width - 4)
+		if browserOverlay != "" {
+			overlayBox := lipgloss.NewStyle().
+			Width(m.width).
+			Align(lipgloss.Center).
+			Render(browserOverlay)
+		content = lipgloss.JoinVertical(lipgloss.Top, content, "\n\n", overlayBox)
+		}
+	}
+
+	// ✨ NEW: Command Palette Overlay (Ctrl+K)
+	if m.commandPalette != nil && m.commandPalette.visible {
+		m.commandPalette.width = m.width - 20
+		m.commandPalette.height = m.height - 10
+		paletteView := m.commandPalette.View()
+		if paletteView != "" {
+			paletteBox := lipgloss.NewStyle().
+				Width(m.width - 16).
+				Align(lipgloss.Center).
+				MarginTop(5).
+				Render(paletteView)
+		content = lipgloss.JoinVertical(lipgloss.Top, content, "\n", paletteBox)
+		}
+	}
+
+	return content + "\n"
+}
 			} else if m.reviewPanel != nil && m.reviewPanel.Visible() {
 				m.reviewPanel.SelectPrev()
 			}
 		case "down":
-			if m.modelBrowserVisible {
-				if m.modelBrowserIdx < len(m.modelBrowserList)-1 {
-					m.modelBrowserIdx++
-				}
+	if m.modelBrowserVisible {
+		browserOverlay := m.renderModelBrowser(m.width - 4)
+		if browserOverlay != "" {
+			overlayBox := lipgloss.NewStyle().
+			Width(m.width).
+			Align(lipgloss.Center).
+			Render(browserOverlay)
+		content = lipgloss.JoinVertical(lipgloss.Top, content, "\n\n", overlayBox)
+		}
+	}
+
+	// ✨ NEW: Command Palette Overlay (Ctrl+K)
+	if m.commandPalette != nil && m.commandPalette.visible {
+		m.commandPalette.width = m.width - 20
+		m.commandPalette.height = m.height - 10
+		paletteView := m.commandPalette.View()
+		if paletteView != "" {
+			paletteBox := lipgloss.NewStyle().
+				Width(m.width - 16).
+				Align(lipgloss.Center).
+				MarginTop(5).
+				Render(paletteView)
+		content = lipgloss.JoinVertical(lipgloss.Top, content, "\n", paletteBox)
+		}
+	}
+
+	return content + "\n"
+}
 			} else if m.reviewPanel != nil && m.reviewPanel.Visible() {
 				m.reviewPanel.SelectNext()
 			}
 		case "enter":
-			if m.modelBrowserVisible {
-				if m.modelBrowserIdx < len(m.modelBrowserList) {
-					selected := m.modelBrowserList[m.modelBrowserIdx]
-					if selected != m.gateway.ActiveModel() {
-						if err := m.gateway.SwitchModel(selected); err == nil {
-							m.AddTrace("system", fmt.Sprintf("Switched model → %s", selected))
-						}
+	if m.modelBrowserVisible {
+		browserOverlay := m.renderModelBrowser(m.width - 4)
+		if browserOverlay != "" {
+			overlayBox := lipgloss.NewStyle().
+			Width(m.width).
+			Align(lipgloss.Center).
+			Render(browserOverlay)
+		content = lipgloss.JoinVertical(lipgloss.Top, content, "\n\n", overlayBox)
+		}
+	}
+
+	// ✨ NEW: Command Palette Overlay (Ctrl+K)
+	if m.commandPalette != nil && m.commandPalette.visible {
+		m.commandPalette.width = m.width - 20
+		m.commandPalette.height = m.height - 10
+		paletteView := m.commandPalette.View()
+		if paletteView != "" {
+			paletteBox := lipgloss.NewStyle().
+				Width(m.width - 16).
+				Align(lipgloss.Center).
+				MarginTop(5).
+				Render(paletteView)
+		content = lipgloss.JoinVertical(lipgloss.Top, content, "\n", paletteBox)
+		}
+	}
+
+	return content + "\n"
+}
 					}
 					m.modelBrowserVisible = false
 				}
@@ -361,12 +451,34 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.AddTrace("system", "⚙ Review scope: permanent (trust)")
 			}
 		case "esc":
-			if m.modelBrowserVisible {
-				m.modelBrowserVisible = false
-			} else if m.reviewPanel != nil && m.reviewPanel.Visible() {
-				if err := m.reviewPanel.RejectSelected(); err == nil {
-					m.AddTrace("system", "✗ Review: action rejected")
-				}
+	if m.modelBrowserVisible {
+		browserOverlay := m.renderModelBrowser(m.width - 4)
+		if browserOverlay != "" {
+			overlayBox := lipgloss.NewStyle().
+			Width(m.width).
+			Align(lipgloss.Center).
+			Render(browserOverlay)
+		content = lipgloss.JoinVertical(lipgloss.Top, content, "\n\n", overlayBox)
+		}
+	}
+
+	// ✨ NEW: Command Palette Overlay (Ctrl+K)
+	if m.commandPalette != nil && m.commandPalette.visible {
+		m.commandPalette.width = m.width - 20
+		m.commandPalette.height = m.height - 10
+		paletteView := m.commandPalette.View()
+		if paletteView != "" {
+			paletteBox := lipgloss.NewStyle().
+				Width(m.width - 16).
+				Align(lipgloss.Center).
+				MarginTop(5).
+				Render(paletteView)
+		content = lipgloss.JoinVertical(lipgloss.Top, content, "\n", paletteBox)
+		}
+	}
+
+	return content + "\n"
+}
 			}
 		case "q":
 			if m.paused {
@@ -377,6 +489,13 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.inputBuffer = ""
 		case "ctrl+m":
 			m.toggleModelBrowser()
+		case "ctrl+k":
+			if m.commandPalette != nil {
+				m.commandPalette.Toggle()
+				if m.commandPalette.visible {
+					m.AddTrace("system", "🔍 Command palette opened")
+				}
+			}
 		case "backspace":
 			if len(m.inputBuffer) > 0 {
 				m.inputBuffer = m.inputBuffer[:len(m.inputBuffer)-1]
@@ -650,9 +769,33 @@ func (m *Model) executeUnifiedInput() {
 
 func (m *Model) toggleModelBrowser() {
 	if m.modelBrowserVisible {
-		m.modelBrowserVisible = false
-		return
+		browserOverlay := m.renderModelBrowser(m.width - 4)
+		if browserOverlay != "" {
+			overlayBox := lipgloss.NewStyle().
+			Width(m.width).
+			Align(lipgloss.Center).
+			Render(browserOverlay)
+		content = lipgloss.JoinVertical(lipgloss.Top, content, "\n\n", overlayBox)
+		}
 	}
+
+	// ✨ NEW: Command Palette Overlay (Ctrl+K)
+	if m.commandPalette != nil && m.commandPalette.visible {
+		m.commandPalette.width = m.width - 20
+		m.commandPalette.height = m.height - 10
+		paletteView := m.commandPalette.View()
+		if paletteView != "" {
+			paletteBox := lipgloss.NewStyle().
+				Width(m.width - 16).
+				Align(lipgloss.Center).
+				MarginTop(5).
+				Render(paletteView)
+		content = lipgloss.JoinVertical(lipgloss.Top, content, "\n", paletteBox)
+		}
+	}
+
+	return content + "\n"
+}
 	if m.gateway.Registry() != nil {
 		reg := m.gateway.Registry()
 		m.modelBrowserList = make([]string, 0, len(reg.Profiles))
@@ -899,11 +1042,30 @@ func (m *Model) View() string {
 		browserOverlay := m.renderModelBrowser(m.width - 4)
 		if browserOverlay != "" {
 			overlayBox := lipgloss.NewStyle().
-				Width(m.width).
-				Align(lipgloss.Center).
-				Render(browserOverlay)
-			content = lipgloss.JoinVertical(lipgloss.Top, content, "\n\n", overlayBox)
+			Width(m.width).
+			Align(lipgloss.Center).
+			Render(browserOverlay)
+		content = lipgloss.JoinVertical(lipgloss.Top, content, "\n\n", overlayBox)
 		}
+	}
+
+	// ✨ NEW: Command Palette Overlay (Ctrl+K)
+	if m.commandPalette != nil && m.commandPalette.visible {
+		m.commandPalette.width = m.width - 20
+		m.commandPalette.height = m.height - 10
+		paletteView := m.commandPalette.View()
+		if paletteView != "" {
+			paletteBox := lipgloss.NewStyle().
+				Width(m.width - 16).
+				Align(lipgloss.Center).
+				MarginTop(5).
+				Render(paletteView)
+		content = lipgloss.JoinVertical(lipgloss.Top, content, "\n", paletteBox)
+		}
+	}
+
+	return content + "\n"
+}
 	}
 	return content + "\n"
 }

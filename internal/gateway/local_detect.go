@@ -132,6 +132,20 @@ func AutoDetectLocalModels(ctx context.Context) (map[string]ModelProfile, string
 	repoPath, _ := os.Getwd()
 
 	// ═══════════════════════════════════════════════════
+	// Tier 0.5 — SmartCode (local AI brain - no external dependencies)
+	// ═══════════════════════════════════════════════════
+
+	profiles["smartcode"] = ModelProfile{
+		Provider:      "smartcode",
+		Model:         "smartcode",
+		Endpoint:      "builtin://smartcode",
+		ContextWindow: 65536,
+		MaxTokens:     8192,
+		Temperature:   0.3,
+	}
+	firstKey = "smartcode" // SmartCode is the ONLY default - everything works offline!
+
+	// ═══════════════════════════════════════════════════
 	// Tier 1 — Built-in zero-dependency adapters
 	// ═══════════════════════════════════════════════════
 
