@@ -222,10 +222,10 @@ Here's a complete implementation for your request:
 ```%s
 // %s represents a %s
 type %s struct {
-    ID        string    `+"`"+`json:"id"`+"`"+`
-    Name      string    `+"`"+`json:"name"`+"`"+`
-    CreatedAt time.Time `+"`"+`json:"created_at"`+"`"+`
-    UpdatedAt time.Time `+"`"+`json:"updated_at"`+"`"+`
+    ID        string    `+ "`" +`json:"id"`+ "`" +`
+    Name      string    `+ "`" +`json:"name"`+ "`" +`
+    CreatedAt time.Time `+ "`" +`json:"created_at"`+ "`" +`
+    UpdatedAt time.Time `+ "`" +`json:"updated_at"`+ "`" +`
 }
 
 // New%s creates a new %s

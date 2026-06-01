@@ -557,9 +557,9 @@ func (dv *DiffViewer) View() string {
 
 		var lineStyle lipgloss.Style
 		if strings.HasPrefix(line, "+") {
-			lineStyle = lipgloss.NewStyle().Foreground(ColorSuccess).Background("#0a2f0a")
+			lineStyle = lipgloss.NewStyle().Foreground(ColorSuccess).Background(lipgloss.Color("#0a2f0a"))
 		} else if strings.HasPrefix(line, "-") {
-			lineStyle = lipgloss.NewStyle().Foreground(ColorError).Background("#2f0a0a")
+			lineStyle = lipgloss.NewStyle().Foreground(ColorError).Background(lipgloss.Color("#2f0a0a"))
 		} else {
 			lineStyle = lipgloss.NewStyle().Foreground(ColorFg)
 		}
