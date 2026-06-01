@@ -295,9 +295,8 @@ func (m *SystemStatusModel) View(width int, frame int, sessionDuration time.Dura
 		if git.Untracked > 0 {
 			untrackedMark = lipgloss.NewStyle().Foreground(ColorFgSubtle).Render(fmt.Sprintf(" +%d", git.Untracked))
 		}
-		commitStr := ""
 		if git.LastCommit != "" {
-			commitStr = lipgloss.NewStyle().Foreground(ColorFgSubtle).Render("  " + git.LastCommit)
+			// commit shown separately
 		}
 		branchStr := lipgloss.NewStyle().Foreground(branchColor).Render(fmt.Sprintf("⎇ %s", git.Branch))
 		lines = append(lines, fmt.Sprintf("  %s %s%s%s",
