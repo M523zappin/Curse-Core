@@ -56,7 +56,7 @@ func (a *EvalAdapter) Send(ctx context.Context, req *gateway.Prompt) (*gateway.R
 
 func extractMathExpr(q string) string {
 	q = strings.TrimSpace(q)
-	for _, prefix := range []string{"calc ",=","eval ","math ","compute ","calculate "} {
+	for _, prefix := range []string{"calc ","=","eval ","math ","compute ","calculate "} {
 		q = strings.TrimPrefix(q, prefix)
 	}
 	q = strings.TrimSpace(q)

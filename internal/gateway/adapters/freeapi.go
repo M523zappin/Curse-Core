@@ -477,7 +477,7 @@ func (a *FreeAPIAdapter) generateCodeResponse(prompt string) string {
 	buf.WriteString("1. Install Ollama: `curl -fsSL https://ollama.ai/install.sh | sh`\n")
 	buf.WriteString("2. Pull a model: `ollama pull codellama`\n")
 	buf.WriteString("3. Start server: `ollama serve`\n")
-	buf.WriteString("4. Press `Tab` to select the ollama model\n\n")
+	buf.WriteString("4. Press "`Tab`" to select the ollama model\n\n")
 	buf.WriteString("*Or use free APIs: OpenRouter, HuggingFace, or Groq*")
 	
 	return buf.String()
@@ -545,7 +545,7 @@ class Service {
     constructor(private options: ServiceOptions) {}
     
     process(): string {
-        return `Processing with ${this.options.name}`;
+        return \`Processing with ${this.options.name}\`;
     }
 }
 
@@ -592,27 +592,27 @@ Hello! I'm CURSE, your autonomous coding assistant.
 | **Debug** | Error analysis, fixes |
 
 ### Quick Commands
-- `/list` - View available models
-- `/stats` - System information  
-- `/init` - Initialize project context
-- `Tab` - Cycle through models
-- `Ctrl+M` - Model browser
+- "`/list`" - View available models
+- "`/stats`" - System information  
+- "`/init`" - Initialize project context
+- "`Tab`" - Cycle through models
+- "`Ctrl+M`" - Model browser
 
 ### Free Model Options
 
 1. **Ollama** (Recommended - runs locally)
-   - Install: `curl -fsSL https://ollama.ai/install.sh | sh`
-   - Models: `ollama pull codellama`, `ollama pull llama3`
+   - Install: "curl -fsSL https://ollama.ai/install.sh | sh"
+   - Models: "ollama pull codellama", "ollama pull llama3"
 
 2. **OpenRouter** (Cloud - free tier available)
    - No API key needed for some models
-   - Set `OPENROUTER_API_KEY` for more
+   - Set "OPENROUTER_API_KEY" for more
 
 3. **HuggingFace** (Cloud - free tier)
-   - Set `HF_TOKEN` for higher limits
+   - Set "HF_TOKEN" for higher limits
 
 4. **Groq** (Cloud - very fast!)
-   - Set `GROQ_API_KEY` for access
+   - Set "GROQ_API_KEY" for access
 
 ### Get Started
 Just describe what you want to build!

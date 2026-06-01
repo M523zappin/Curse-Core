@@ -40,6 +40,8 @@ var (
 	ColorWarning    = lipgloss.Color("#ffaa00")
 	ColorError      = lipgloss.Color("#ff0055")
 	ColorProcessing = lipgloss.Color("#00f2ff")
+	ColorPsychic    = lipgloss.Color("#ff00ff") // Alias for Magenta
+	ColorSpiral     = lipgloss.Color("#00f2ff")  // Alias for Cyan
 )
 
 // ── Geometric Entity Mark (4 breathing frames) ──────────────
