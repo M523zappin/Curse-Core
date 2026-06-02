@@ -1,50 +1,41 @@
-# CURSE Development Makefile
+GO ?= go
+BIN_DIR ?= bin
 
-## Commands
+.PHONY: build build-all test test-race fmt fmt-check vet lint ci clean help
 
-### Build
-Build the dashboard binary.
-```bash
-make build
-```
+build: ## Build the dashboard binary.
+	$(GO) build -o $(BIN_DIR)/curse ./cmd/dashboard
 
-### Test
-Run all tests.
-```bash
-make test
-```
+build-all: ## Build all command entrypoints.
+	$(GO) build ./cmd/...
 
-### Lint
-Run linting (requires `golangci-lint`).
-```bash
-make lint
-```
+test: ## Run all tests.
+	$(GO) test ./...
 
-### Clean
-Remove build artifacts and temporary files.
-```bash
-make clean
-```
+test-race: ## Run tests with race detector (supported platforms only).
+	$(GO) test -race ./...
 
-### Help
-Show this help message.
-```bash
-make help
-```
+fmt: ## Format all Go files in-place.
+	$(GO) fmt ./...
 
-## Targets
+fmt-check: ## Check if Go files are formatted (fails if changes are needed).
+	@unformatted="$$(gofmt -l .)"; \
+	if [ -n "$$unformatted" ]; then \
+		echo "These files need gofmt:"; \
+		echo "$$unformatted"; \
+		exit 1; \
+	fi
 
-### build
-Builds the `curse` binary in the `bin/` directory.
+vet: ## Run go vet checks.
+	$(GO) vet ./...
 
-### test
-Runs `go test ./...`.
+lint: ## Run golangci-lint (requires golangci-lint in PATH).
+	golangci-lint run ./...
 
-### lint
-Runs `golangci-lint run`.
+ci: fmt-check vet build-all test ## Run the same core checks as CI.
 
-### clean
-Removes the `bin/` directory and build artifacts.
+clean: ## Remove build artifacts.
+	rm -rf $(BIN_DIR)
 
-### help
-Prints the help message.
+help: ## Show available targets.
+	@awk 'BEGIN {FS = ":.*## "}; /^[a-zA-Z0-9_.-]+:.*## / {printf "\033[36m%-16s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)

@@ -11,11 +11,20 @@ We actively provide security updates for the following versions of CURSE:
 
 ## Reporting a Vulnerability
 
-**Please do not report security vulnerabilities through public GitHub issues.**
+Please do **not** report vulnerabilities through public GitHub issues or pull requests.
 
-Instead, please report them privately by opening an issue on our GitHub repository but marking it as **Draft** (if you want to keep it private until fixed).
+Preferred disclosure path:
+- Open a private GitHub Security Advisory for this repository.
+- If that is unavailable, contact the maintainer directly and include:
+  - affected version and platform
+  - reproduction steps or proof of concept
+  - potential impact
 
-We will investigate the report and provide a fix as soon as possible. We will then publicly disclose the fix and the vulnerability.
+Response targets:
+- Initial acknowledgment: within 72 hours
+- Triage decision: within 7 days
+- Fix release timing: depends on severity and exploitability
 
 ## Thank You
-Thank you for helping keep CURSE secure!
+
+Thank you for helping keep CURSE secure.

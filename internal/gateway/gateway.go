@@ -132,7 +132,7 @@ func (g *Gateway) Init(ctx context.Context) error {
 	g.InitMemory()
 
 	// ── Iteration Budget ──────────────────────────────────
-	g.budget = engine.NewIterationBudget(100)
+	g.budget = engine.NewIterationBudget(0) // 0 = unlimited
 
 	// ── Autonomous Architectural Backbone ─────────────────
 	g.InitFleet()

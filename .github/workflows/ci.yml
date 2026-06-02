@@ -7,22 +7,49 @@ on:
     branches: [ master ]
 
 jobs:
-  build:
+  quality:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
 
     - name: Set up Go
-      uses: actions/setup-go@v4
+      uses: actions/setup-go@v5
       with:
-        go-version: '1.26'
+        go-version-file: 'go.mod'
 
-    - name: Install dependencies
+    - name: Download modules
       run: go mod download
 
-    - name: Build
-      run: go build -v ./cmd/dashboard/
+    - name: Verify formatting
+      run: |
+        UNFORMATTED=$(gofmt -l .)
+        if [ -n "$UNFORMATTED" ]; then
+          echo "These files need gofmt:"
+          echo "$UNFORMATTED"
+          exit 1
+        fi
 
-    - name: Test
+    - name: Vet
+      run: go vet ./...
+
+    - name: Test all packages
       run: go test -v ./...
+
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version-file: 'go.mod'
+
+    - name: Build all commands
+      run: go build -v ./cmd/...

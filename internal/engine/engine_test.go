@@ -354,7 +354,7 @@ func TestEngineLearnTaskLimit(t *testing.T) {
 	eng, _, fleet, _, _, _ := newTestEngine(t)
 	initEngineCtx(eng)
 
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 55; i++ {
 		fleet.Enqueue(agent.Task{
 			ID:          fmt.Sprintf("pre-existing-learn-%d", i),
 			Role:        agent.RoleDocWriter,

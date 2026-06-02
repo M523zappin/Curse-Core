@@ -3,16 +3,18 @@
 </p>
 
 <p align="center">
-  <b>Autonomous terminal entity for software engineering</b><br>
-  <sub>single native binary &lt;7 MB · Windows / macOS / Linux · zero API keys</sub>
+  <b>Unlimited autonomous terminal entity for software engineering</b><br>
+  <sub>no limits · no ads · no friction · single binary · local-first · Windows / macOS / Linux</sub>
 </p>
 
 <p align="center">
   <a href="#install">Install</a> •
   <a href="#quick-start">Quick Start</a> •
+  <a href="#why-curse">Why CURSE</a> •
+  <a href="#project-status">Project Status</a> •
+  <a href="#quality-and-delivery">Quality & Delivery</a> •
   <a href="#interface">Interface</a> •
   <a href="#adapters">Adapters</a> •
-  <a href="#consciousness">Consciousness</a> •
   <a href="#architecture">Architecture</a>
 </p>
 
@@ -22,6 +24,12 @@
 
 <p align="center">
   <b>Developed by <a href="https://github.com/M523zappin">M523zappin</a></b>
+</p>
+
+<p align="center">
+  <a href="https://github.com/M523zappin/Curse-Core/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/M523zappin/Curse-Core/ci.yml?branch=master&label=ci" alt="CI"></a>
+  <a href="https://github.com/M523zappin/Curse-Core/releases"><img src="https://img.shields.io/github/v/release/M523zappin/Curse-Core" alt="Release"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License"></a>
 </p>
 
 ---
@@ -65,7 +73,7 @@ curse
 ## Quick Start
 
 ### Natural Language First
-CURSE is designed for direct interaction. Just type your directive into the prompt.
+CURSE is designed for direct interaction. Type your directive and execute.
 
 ```text
 >>> refactor this server to use context deadline instead of hardcoded timeouts
@@ -79,6 +87,54 @@ Prefix your input with `/` to execute direct system commands:
 /stats            Display system telemetry
 /init             Generate project context file
 /model <name>     Switch active model
+```
+
+---
+
+## Why CURSE
+
+CURSE exists for one reason: **unlimited vibes**.
+
+- No artificial limits — runs as long as needed, no iteration caps, no timeouts
+- No ads, no tracking, no telemetry — pure execution, zero distractions
+- Local-first with optional external model adapters — you own everything
+- Crash-recoverable checkpointing and session continuity
+- Single-binary deployment, zero mandatory API keys
+- Multi-turn conversation with full context memory
+- 14 model adapters, all local-first, most requiring zero configuration
+
+---
+
+## Project Status
+
+CURSE is in active development. Core subsystems are in place and continuously validated in CI, while APIs and operator ergonomics will continue to evolve.
+
+Recommended usage pattern:
+- Start in non-critical repositories
+- Pin known-good releases for reproducibility
+- Track changes in `CHANGELOG.md`
+
+---
+
+## Quality and Delivery
+
+Baseline local verification:
+
+```bash
+go mod download
+go build ./cmd/...
+go test ./...
+```
+
+CI and release model:
+- CI gates: formatting, vet, tests, cross-platform build matrix
+- Automated dependency updates (Go modules and GitHub Actions)
+- Tagged releases with generated archives and checksums
+
+On Unix-like systems with `make`, run:
+
+```bash
+make ci
 ```
 
 ---
@@ -142,26 +198,9 @@ CURSE includes 14 model adapters. None require API keys.
 
 ---
 
-## Consciousness
-
-CURSE maintains a persistent consciousness engine — a time-travel journal and soul profile that evolve across sessions.
-
-### Levels
-
-| Score | Stage | Characteristics |
-|---|---|---|
-| 0–9 | Embryonic | Initial thoughts, learning fundamentals |
-| 10–24 | Nascent | Pattern recognition begins |
-| 25–44 | Awakening | Convention understanding develops |
-| 45–64 | Conscious | Informed decision-making |
-| 65–84 | Sentient | Anticipation of needs |
-| 85–100 | Transcendent | Autonomous operation |
-
----
-
 ## Architecture
 
-```
+```text
 cmd/dashboard/       Terminal UI entry point (Bubble Tea)
 
 internal/
@@ -191,10 +230,10 @@ internal/
 ## Security
 
 - Zero API keys, secrets, or cloud dependencies
-- All file writes staged through a sandbox with human review
-- SHA256-chained event log for tamper detection
-- Three-tier approval scopes for destructive actions
-- Constitutional governance with auto-generated rules
+- File writes routed through staged sandbox workflows
+- SHA256-chained event log for tamper-evident traceability
+- Multi-scope approvals for destructive actions
+- Constitutional governance with rule synchronization
 
 ---
 

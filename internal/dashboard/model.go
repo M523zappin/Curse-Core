@@ -53,7 +53,11 @@ type Model struct {
 	modelBrowserIdx     int
 	modelBrowserList    []string
 
-	inputBuffer  string
+	inputBuffer    string
+	inputHistory   []string
+	inputHistIdx   int // -1 = not browsing history
+	chatHistory  []ChatMessage
+	chatMu      sync.Mutex
 
 	traceMu  sync.Mutex
 	bootTick int
@@ -67,7 +71,14 @@ type TraceEntry struct {
 	Level     string
 }
 
-var version = "v1.0.0"
+type ChatMessage struct {
+	Role      string // "user", "assistant", "system"
+	Content   string
+	Timestamp time.Time
+	AgentName string // for sub-agent responses
+}
+
+var version = "v2.0.0"
 
 func NewModel(gw *gateway.Gateway) *Model {
 	tools := gateway.DetectLocalTools(context.Background())
@@ -86,10 +97,12 @@ func NewModel(gw *gateway.Gateway) *Model {
 		paused:       false,
 		missionQueue: NewMissionQueueModel(gw.Queue()),
 		systemStatus: NewSystemStatusModel(gw),
-		maxVisible:   25,
-		lastSeqRead:  0,
+	maxVisible:   50,
+	lastSeqRead:  0,
 		startTime:    time.Now(),
 		detectedTools: detected,
+		chatHistory:  make([]ChatMessage, 0),
+		inputHistIdx: -1,
 	}
 
 	if gw.ReviewManager() != nil {
@@ -153,7 +166,7 @@ func (m *Model) bootView(width int) string {
 			"",
 			lipgloss.NewStyle().Foreground(dimAccent).Width(width).Align(lipgloss.Center).Render("╔" + strings.Repeat("═", width-4) + "╗"),
 			lipgloss.NewStyle().Foreground(accent).Bold(true).Width(width).Align(lipgloss.Center).Render("   C U R S E"),
-			lipgloss.NewStyle().Foreground(ColorFgSubtle).Width(width).Align(lipgloss.Center).Render("   Cognitive Unified Runtime System Entity"),
+			lipgloss.NewStyle().Foreground(ColorFgSubtle).Width(width).Align(lipgloss.Center).Render("   Autonomous Terminal Entity"),
 			lipgloss.NewStyle().Foreground(ColorFgInactive).Width(width).Align(lipgloss.Center).Render(""),
 			lipgloss.NewStyle().Foreground(ColorFgSubtle).Width(width).Align(lipgloss.Center).Render("   Scanning subsystems" + dots),
 			lipgloss.NewStyle().Foreground(ColorSpiral).Width(width).Align(lipgloss.Center).Render("   " + loadingBar),
@@ -244,13 +257,13 @@ func (m *Model) showSplash() {
 
 	switch phase {
 	case BootPhaseScan:
-		m.AddTrace("system", "⟐ scanning subsystems...")
+		m.AddTrace("system", "⟐ CURSE v2.0 — scanning subsystems...")
 	case BootPhaseDetect:
 		for _, tool := range m.detectedTools {
 			m.AddTrace("system", fmt.Sprintf("✓ %s", tool))
 		}
 		m.AddTrace("entity", "██████████████████████████████████████████████████████████")
-		m.AddTrace("entity", "  ◈  ESTABLISHING ENTITY CONSCIOUSNESS...")
+		m.AddTrace("entity", "  ◈  UNLIMITED VIBES  ·  NO CAPS  ·  NO ADS  ·  NO LIMITS")
 	case BootPhaseAwaken:
 		m.AddTrace("entity", "  ██  cortex » 8-state machine  ·  SHA256-chain memory")
 		m.AddTrace("entity", "  ██  agents » 8 specialized minds  ·  priority dispatch")
@@ -258,9 +271,19 @@ func (m *Model) showSplash() {
 		m.AddTrace("entity", "  ██  reflex » self-healing loop  ·  root-cause analysis")
 		m.AddTrace("entity", "  ██  memory » persistent knowledge index  ·  ADR journal")
 		m.AddTrace("entity", "  ██  language » LSP diagnostics  ·  gopls  ·  typescript")
-		m.AddTrace("entity", "  ██  ethics » HITL review  ·  constitution guardrails")
-		m.AddTrace("system", "  ◈  ENTITY ACTIVE  ·  awaiting directive")
-		m.AddTrace("system", "  ◈  Ctrl+N talk  ·  Tab cycle model  ·  Ctrl+M browse  ·  Ctrl+P pause  ·  / commands")
+		m.AddTrace("entity", "  ██  ethics » constitution guardrails  ·  sandbox staging")
+		m.AddTrace("system", "")
+		m.AddTrace("system", "  ◈  CURSE ACTIVE  ·  type naturally  ·  no limits  ·  no ads")
+		m.AddTrace("system", "")
+		m.AddTrace("system", "  Try any of these:")
+		m.AddTrace("system", "    'run tests'        run all tests instantly")
+		m.AddTrace("system", "    'git status'       see what changed")
+		m.AddTrace("system", "    'build'            compile the project")
+		m.AddTrace("system", "    'fix bug in X'     let CURSE analyze and fix")
+		m.AddTrace("system", "    'explain main.go'  get a walkthrough")
+		m.AddTrace("system", "    'search for X'     find anything in the codebase")
+		m.AddTrace("system", "    /help               all commands and shortcuts")
+		m.AddTrace("system", "  ↑↓ to recall previous inputs  ·  Tab to cycle models")
 	}
 }
 
@@ -318,6 +341,16 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			} else if m.reviewPanel != nil && m.reviewPanel.Visible() {
 				m.reviewPanel.SelectPrev()
+			} else {
+				// Browse input history (up = older)
+				if len(m.inputHistory) > 0 {
+					if m.inputHistIdx < 0 {
+						m.inputHistIdx = len(m.inputHistory) - 1
+					} else if m.inputHistIdx > 0 {
+						m.inputHistIdx--
+					}
+					m.inputBuffer = m.inputHistory[m.inputHistIdx]
+				}
 			}
 		case "down":
 			if m.modelBrowserVisible {
@@ -326,6 +359,17 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			} else if m.reviewPanel != nil && m.reviewPanel.Visible() {
 				m.reviewPanel.SelectNext()
+			} else {
+				// Browse input history (down = newer)
+				if m.inputHistIdx >= 0 {
+					m.inputHistIdx++
+					if m.inputHistIdx >= len(m.inputHistory) {
+						m.inputHistIdx = -1
+						m.inputBuffer = ""
+					} else {
+						m.inputBuffer = m.inputHistory[m.inputHistIdx]
+					}
+				}
 			}
 		case "enter":
 			if m.modelBrowserVisible {
@@ -343,6 +387,14 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.AddTrace("system", "✓ Review: action approved")
 				}
 			} else {
+				// Save to input history before executing
+				if strings.TrimSpace(m.inputBuffer) != "" {
+					m.inputHistory = append(m.inputHistory, strings.TrimSpace(m.inputBuffer))
+					if len(m.inputHistory) > 100 {
+						m.inputHistory = m.inputHistory[len(m.inputHistory)-100:]
+					}
+				}
+				m.inputHistIdx = -1
 				m.executeUnifiedInput()
 			}
 		case "o":
@@ -380,11 +432,13 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "backspace":
 			if len(m.inputBuffer) > 0 {
 				m.inputBuffer = m.inputBuffer[:len(m.inputBuffer)-1]
-			}
-		default:
-			if len(msg.String()) == 1 && msg.String()[0] >= 32 {
-				m.inputBuffer += msg.String()
-			}
+			}			default:
+				if len(msg.String()) == 1 && msg.String()[0] >= 32 {
+					if m.inputHistIdx >= 0 {
+						m.inputHistIdx = -1
+					}
+					m.inputBuffer += msg.String()
+				}
 		}
 		m.missionQueue.Update(msg)
 		m.systemStatus.Update(msg)
@@ -464,9 +518,61 @@ func (m *Model) executeUnifiedInput() {
 			return
 
 		case cmd == "/help" || cmd == "/h":
-			m.AddTrace("system", "═ KEYS: Ctrl+N talk  ·  Ctrl+M model browser  ·  Tab cycle model  ·  Ctrl+P pause  ·  Ctrl+R resume")
-			m.AddTrace("system", "═ KEYS: Ctrl+B browser  ·  Ctrl+Y sync  ·  Ctrl+S quit  ·  ↑↓ navigate  ·  Enter select  ·  Esc reject  ·  o/s/p scope  ·  q quit")
-			m.AddTrace("system", "═ CMDS: /model <name>  ·  /list  ·  /stats  ·  /init  ·  /install-unsloth  ·  /help  ·  /quit")
+			m.AddTrace("system", "═══════════════════  U N L I M I T E D   V I B E S  ═══════════════════")
+			m.AddTrace("system", "")
+			m.AddTrace("system", "  Just type naturally. CURSE understands intent.")
+			m.AddTrace("system", "  Examples: 'run tests'  'git status'  'fix bug'  'explain main.go'")
+			m.AddTrace("system", "")
+			m.AddTrace("system", "═ NATURAL LANGUAGE (just type — no prefix needed):")
+			m.AddTrace("system", "  run tests / build / lint / format code")
+			m.AddTrace("system", "  git status / git diff / git log / commit / git push")
+			m.AddTrace("system", "  list files / show project / what's in src")
+			m.AddTrace("system", "  explain this / fix bug / debug")
+			m.AddTrace("system", "  anything else → CURSE responds with full context")
+			m.AddTrace("system", "")
+			m.AddTrace("system", "═ INPUT HISTORY:")
+			m.AddTrace("system", "  ↑ / ↓          Recall previous inputs")
+			m.AddTrace("system", "  (last 100 inputs remembered across session)")
+			m.AddTrace("system", "")
+			m.AddTrace("system", "═ SUB-AGENTS:")
+			m.AddTrace("system", "  @run <cmd>      Execute shell command directly")
+			m.AddTrace("system", "  @grep <pattern>  Search codebase for pattern")
+			m.AddTrace("system", "")
+			m.AddTrace("system", "═ CHAT:")
+			m.AddTrace("system", "  /clear (/cc)    Clear chat history")
+			m.AddTrace("system", "  /history        View conversation log")
+			m.AddTrace("system", "")
+			m.AddTrace("system", "═ MODELS:")
+			m.AddTrace("system", "  /list (/ls)     List all models")
+			m.AddTrace("system", "  /model <name>   Switch active model")
+			m.AddTrace("system", "  Tab             Cycle models")
+			m.AddTrace("system", "  Ctrl+M          Model browser")
+			m.AddTrace("system", "")
+			m.AddTrace("system", "═ SYSTEM:")
+			m.AddTrace("system", "  /stats (/st)    System telemetry")
+			m.AddTrace("system", "  /init           Generate AGENTS.md")
+			m.AddTrace("system", "  Ctrl+P pause    Ctrl+S quit")
+			m.AddTrace("system", "══════════════════════════════════════════════════════════════════════════")
+
+		case cmd == "/clear" || cmd == "/cc":
+			m.chatMu.Lock()
+			m.chatHistory = m.chatHistory[:0]
+			m.chatMu.Unlock()
+			m.AddTrace("system", "✓ Chat history cleared")
+
+		case cmd == "/history" || cmd == "/hist":
+			m.chatMu.Lock()
+			historyCopy := make([]ChatMessage, len(m.chatHistory))
+			copy(historyCopy, m.chatHistory)
+			m.chatMu.Unlock()
+			m.AddTrace("system", fmt.Sprintf("═ Chat history: %d messages", len(historyCopy)))
+			for _, cm := range historyCopy {
+				preview := cm.Content
+				if len(preview) > 80 {
+					preview = preview[:80] + "..."
+				}
+				m.AddTrace("system", fmt.Sprintf("  [%s] %s", cm.Role, preview))
+			}
 
 		case cmd == "/install-unsloth" || cmd == "/iu":
 			m.AddTrace("system", "═ Installing unsloth... this may take a few minutes")
@@ -611,41 +717,169 @@ func (m *Model) executeUnifiedInput() {
 		default:
 			m.AddTrace("error", fmt.Sprintf("═ Unknown command: %s — /help for commands", cmd))
 		}
-	} else {
-		// Natural language directive
-		m.AddTrace("user", fmt.Sprintf(">>> %s", input))
-		m.AddTrace("system", "  processing...")
-
+	} else if strings.HasPrefix(input, "@run ") {
+		// Sub-agent: execute shell command (cross-platform)
+		shellCmd := strings.TrimSpace(input[5:])
+		if shellCmd == "" {
+			m.AddTrace("error", "═ Usage: @run <shell command>")
+			return
+		}
+		m.AddTrace("user", fmt.Sprintf(">>> @run %s", shellCmd))
+		m.AddTrace("agent", "  executing shell command...")
 		go func() {
-			adapter := m.gateway.Adapter()
-			if adapter == nil {
-				m.AddTrace("error", "  No active model — use /list to see available models, /model <name> to switch")
-				return
-			}
-			ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
-			defer cancel()
-
-			prompt := &gateway.Prompt{
-				Messages: []gateway.Message{
-					{Role: gateway.RoleUser, Content: input},
-				},
-				MaxTokens: 4096,
-			}
-
-			resp, err := adapter.Send(ctx, prompt)
+			cmd := execShellCommand(shellCmd)
+			cmd.Dir = m.gateway.RepoPath()
+			output, err := cmd.CombinedOutput()
 			if err != nil {
-				m.AddTrace("error", fmt.Sprintf("  Response failed: %v", err))
+				m.AddTrace("agent", fmt.Sprintf("  ✗ failed: %s", err))
+				if len(output) > 0 {
+					m.traceOutput("agent", string(output))
+				}
 				return
 			}
-			text := resp.Message.Content
-			if len(text) > 400 {
-				m.AddTrace("model", fmt.Sprintf("  %s", text[:400]))
-				m.AddTrace("system", fmt.Sprintf("  ... (response truncated, full length: %d chars)", len(text)))
+			result := strings.TrimSpace(string(output))
+			if result == "" {
+				m.AddTrace("agent", "  ✓ command completed (no output)")
 			} else {
-				m.AddTrace("model", fmt.Sprintf("  %s", text))
+				m.traceOutput("agent", result)
 			}
 		}()
+	} else if strings.HasPrefix(input, "@grep ") {
+		// Sub-agent: search codebase (cross-platform)
+		pattern := strings.TrimSpace(input[6:])
+		if pattern == "" {
+			m.AddTrace("error", "═ Usage: @grep <search pattern>")
+			return
+		}
+		m.AddTrace("user", fmt.Sprintf(">>> @grep %s", pattern))
+		m.AddTrace("agent", "  searching codebase...")
+		go func() {
+			cmd := execGrepCommand(pattern)
+			cmd.Dir = m.gateway.RepoPath()
+			output, err := cmd.CombinedOutput()
+			if err != nil {
+				if len(output) > 0 {
+					m.traceOutput("agent", string(output))
+				} else {
+					m.AddTrace("agent", fmt.Sprintf("  no matches for %q", pattern))
+				}
+				return
+			}
+			result := strings.TrimSpace(string(output))
+			m.traceOutput("agent", result)
+		}()
+	} else {
+		// Natural language — check for intent first
+		intent := parseIntent(input)
+
+		if intent != nil && intent.IsExec {
+			// Direct command execution — fast path, no model needed
+			m.AddTrace("user", fmt.Sprintf(">>> %s", input))
+			m.AddTrace("system", fmt.Sprintf("  %s", intent.Message))
+			m.AddTrace("system", fmt.Sprintf("  → %s", intent.Command))
+			go func() {
+				cmd := execShellCommand(intent.Command)
+				cmd.Dir = m.gateway.RepoPath()
+				output, err := cmd.CombinedOutput()
+				if err != nil {
+					m.AddTrace("error", fmt.Sprintf("  ✗ %s", err))
+					if len(output) > 0 {
+						m.traceOutput("system", string(output))
+					}
+					return
+				}
+				result := strings.TrimSpace(string(output))
+				if result == "" {
+					m.AddTrace("system", "  ✓ completed (no output)")
+				} else {
+					m.traceOutput("system", result)
+				}
+			}()
+		} else if intent != nil && !intent.IsExec {
+			// File listing or other local operations
+			m.AddTrace("user", fmt.Sprintf(">>> %s", input))
+			m.AddTrace("system", fmt.Sprintf("  %s", intent.Message))
+			if intent.Type == IntentListFiles {
+				subDir := intent.Command
+				result := listProjectFiles(m.gateway.RepoPath(), subDir)
+				m.traceOutput("system", result)
+			} else {
+				// Explain/fix — send to model with context
+				m.handleNLWithModel(input)
+			}
+		} else {
+			// Pure natural language — send to model
+			m.AddTrace("user", fmt.Sprintf(">>> %s", input))
+			m.AddTrace("system", "  processing...")
+			m.handleNLWithModel(input)
+		}
 	}
+}
+
+func (m *Model) handleNLWithModel(input string) {
+	go func() {
+		adapter := m.gateway.Adapter()
+		if adapter == nil {
+			m.AddTrace("error", "  No active model — use /list to see available models, /model <name> to switch")
+			return
+		}
+
+		// Record user message in chat history
+		m.chatMu.Lock()
+		m.chatHistory = append(m.chatHistory, ChatMessage{
+			Role:      "user",
+			Content:   input,
+			Timestamp: time.Now(),
+		})
+		if len(m.chatHistory) > 50 {
+			m.chatHistory = m.chatHistory[len(m.chatHistory)-50:]
+		}
+		historyCopy := make([]ChatMessage, len(m.chatHistory))
+		copy(historyCopy, m.chatHistory)
+		m.chatMu.Unlock()
+
+		// Build multi-turn messages from chat history
+		var messages []gateway.Message
+		messages = append(messages, gateway.Message{Role: gateway.RoleSystem, Content: "You are CURSE, an autonomous terminal entity for software engineering. You have full access to the codebase and can execute any operation. No artificial limits apply. Be direct, precise, and action-oriented."})
+		for _, cm := range historyCopy {
+			role := gateway.RoleUser
+			if cm.Role == "assistant" {
+				role = gateway.RoleAssistant
+			} else if cm.Role == "system" {
+				role = gateway.RoleSystem
+			}
+			messages = append(messages, gateway.Message{Role: role, Content: cm.Content})
+		}
+
+		if m.gateway.Truncator() != nil {
+			messages = m.gateway.Truncator().Truncate(messages)
+		}
+
+		prompt := &gateway.Prompt{
+			Messages:  messages,
+			MaxTokens: 32768,
+		}
+
+		resp, err := adapter.Send(context.Background(), prompt)
+		if err != nil {
+			m.AddTrace("error", fmt.Sprintf("  Response failed: %v", err))
+			return
+		}
+		text := resp.Message.Content
+
+		m.chatMu.Lock()
+		m.chatHistory = append(m.chatHistory, ChatMessage{
+			Role:      "assistant",
+			Content:   text,
+			Timestamp: time.Now(),
+		})
+		if len(m.chatHistory) > 50 {
+			m.chatHistory = m.chatHistory[len(m.chatHistory)-50:]
+		}
+		m.chatMu.Unlock()
+
+		m.traceOutput("assistant", text)
+	}()
 }
 
 func (m *Model) toggleModelBrowser() {
@@ -994,6 +1228,40 @@ func (m *Model) AddTrace(level, msg string) {
 
 func (m *Model) Quitting() bool {
 	return m.quitting
+}
+
+// ── Cross-Platform Helpers ─────────────────────────────────
+
+func isWindows() bool {
+	return os.PathSeparator == '\\'
+}
+
+func execShellCommand(command string) *exec.Cmd {
+	if isWindows() {
+		return exec.Command("cmd", "/C", command)
+	}
+	return exec.Command("sh", "-c", command)
+}
+
+func execGrepCommand(pattern string) *exec.Cmd {
+	if isWindows() {
+		return exec.Command("findstr", "/S", "/N", "/I", "/C:"+pattern, "*.go", "*.md", "*.json")
+	}
+	return exec.Command("grep", "-rn", "--include=*.go", "--include=*.md", "--include=*.json", pattern, ".")
+}
+
+// traceOutput writes text to the trace panel in 2000-char chunks.
+func (m *Model) traceOutput(label, text string) {
+	for len(text) > 0 {
+		chunk := text
+		if len(chunk) > 2000 {
+			chunk = text[:2000]
+			text = text[2000:]
+		} else {
+			text = ""
+		}
+		m.AddTrace(label, fmt.Sprintf("  %s", chunk))
+	}
 }
 
 // ── Panel Renderer ──────────────────────────────────────────

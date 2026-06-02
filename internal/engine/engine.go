@@ -305,14 +305,13 @@ func (e *Engine) dispatchFleet() {
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	for i := 0; i < 100; i++ {
+	for i := 0; i < 500; i++ {
 		e.fleet.AssignNext(ctx)
 		pending := e.fleet.PendingTasks()
 		if len(pending) == 0 {
 			return
 		}
 	}
-	e.trace("system", "dispatch reached max iterations, some tasks may be pending")
 }
 
 func (e *Engine) collectResults(missionID string) (results []agent.TaskResult) {
@@ -323,14 +322,16 @@ func (e *Engine) collectResults(missionID string) (results []agent.TaskResult) {
 		}
 	}()
 
-	timeout := time.After(5 * time.Minute)
 	ticker := time.NewTicker(50 * time.Millisecond)
 	defer ticker.Stop()
 
+	safetyTimeout := time.After(30 * time.Minute)
 	for {
 		select {
-		case <-timeout:
-			e.trace("error", "collection timed out after 5 minutes")
+		case <-e.ctx.Done():
+			return e.fleet.CompletedTasks()
+		case <-safetyTimeout:
+			e.trace("error", "collection safety timeout after 30 minutes")
 			return e.fleet.CompletedTasks()
 		case <-ticker.C:
 			e.dispatchFleet()
@@ -442,7 +443,7 @@ func (e *Engine) processResults(m *mission.Mission, results []agent.TaskResult) 
 		}
 		e.trace(level, fmt.Sprintf("task %s: %s", r.TaskID, r.Output))
 
-		if pendingLearnTasks >= 5 {
+		if pendingLearnTasks >= 50 {
 			continue
 		}
 

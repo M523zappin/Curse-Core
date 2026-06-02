@@ -15,7 +15,8 @@ type QuickAction struct {
 }
 
 var defaultQuickActions = []QuickAction{
-	{Key: "Ctrl+N", Label: "new", Desc: "clear buffer", Color: ColorPsychic},
+	{Key: "@run", Label: "shell", Desc: "execute command", Color: ColorToxic},
+	{Key: "@grep", Label: "search", Desc: "search codebase", Color: ColorSuccess},
 	{Key: "Tab", Label: "model", Desc: "cycle models", Color: ColorSpiral},
 	{Key: "/", Label: "cmd", Desc: "commands", Color: ColorAccent},
 	{Key: "Ctrl+M", Label: "browse", Desc: "model browser", Color: ColorProcessing},

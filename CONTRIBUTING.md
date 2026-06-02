@@ -1,31 +1,55 @@
 # Contributing to CURSE
 
-First off, thank you for considering contributing to CURSE! It's people like you that make this tool awesome.
+First off, thank you for contributing. CURSE is built to evolve quickly, and high-signal contributions make that possible.
 
 ## How to Contribute
 
 ### 1. Report Bugs or Suggest Features
-The best way to contribute is to report bugs or suggest new features by opening an issue on our GitHub repository:
+
+Open an issue at:
 [https://github.com/M523zappin/Curse-Core/issues](https://github.com/M523zappin/Curse-Core/issues)
 
-### 2. Pull Requests
-If you've found a bug or want to add a feature, feel free to submit a pull request!
+When possible, include:
+- exact reproduction steps
+- expected vs actual behavior
+- platform details and version
 
-- **Fork the repository** and create your branch from `master`.
-- **Make your changes** in a clear and concise way.
-- **Follow our coding style** (Go for the core, follow existing patterns in the codebase).
-- **Add tests** for any new functionality or bug fixes.
-- **Run linting and typechecks** before submitting.
-- **Submit a Pull Request** with a clear description of your changes.
+### 2. Submit Pull Requests
 
-### 3. Coding Standards
-- **Language:** We primarily use Go for the core engine and TUI.
-- **Style:** We follow standard Go formatting (`go fmt`).
-- **Testing:** We aim for high test coverage. Please include tests for your changes.
-- **Documentation:** If you change something significant, please update the relevant documentation.
+- Fork the repository and branch from `master`.
+- Keep changes focused and reviewable.
+- Add or update tests for behavioral changes.
+- Update documentation when behavior changes.
+- Ensure CI passes before requesting review.
+
+Recommended pre-PR checks:
+
+```bash
+go fmt ./...
+go vet ./...
+go test ./...
+golangci-lint run ./...
+```
+
+If `golangci-lint` is not installed locally, submit anyway and use CI feedback to iterate.
+
+## Branch and Commit Strategy
+
+- Use focused branches (`feat/...`, `fix/...`, `chore/...`).
+- Keep commits atomic and descriptive.
+- Prefer conventional prefixes (`feat:`, `fix:`, `chore:`, `docs:`) for cleaner release notes.
+
+## Coding Standards
+
+- **Language:** Go (core runtime and TUI).
+- **Formatting:** Standard Go formatting (`go fmt` / `gofmt`).
+- **Reliability:** Prioritize deterministic behavior and recoverable failure modes.
+- **Documentation:** Any non-obvious behavior needs docs.
 
 ## Code of Conduct
-Please be respectful and professional in all interactions. We are committed to providing a welcoming and inclusive environment for all contributors.
+
+Please keep interactions respectful and professional. See `CODE_OF_CONDUCT.md`.
 
 ## License
-By contributing to CURSE, you agree that your contributions will be licensed under the MIT License.
+
+By contributing, you agree your contributions are licensed under the MIT License.

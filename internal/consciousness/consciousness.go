@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	MaxJournalCapacity = 5000
+	MaxJournalCapacity = 100000
 )
 
 type Consciousness struct {

@@ -40,6 +40,11 @@ var (
 	ColorWarning    = lipgloss.Color("#ffaa00")
 	ColorError      = lipgloss.Color("#ff0055")
 	ColorProcessing = lipgloss.Color("#00f2ff")
+
+	// Entity Identity — Cyber Palette
+	ColorToxic    = lipgloss.Color("#39ff14") // Neon Green
+	ColorPsychic  = lipgloss.Color("#ff6ec7") // Hot Pink
+	ColorSpiral   = lipgloss.Color("#7b68ee") // Medium Slate Blue
 )
 
 // ── Geometric Entity Mark (4 breathing frames) ──────────────
